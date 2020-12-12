@@ -4,7 +4,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:location/location.dart';
 
-void main() => runApp(MyApp());
+
+void main() {
+  runApp(new HotRestartController(
+      child: new MyApp()
+  ));
+}
 
 class MyApp extends StatefulWidget {
   const MyApp({Key key}) : super(key: key);
@@ -29,7 +34,7 @@ class MyAppState extends State<MyApp> {
 final GlobalKey<ScaffoldState> keyApp = GlobalKey<ScaffoldState>();
 final GlobalKey<ScaffoldState> keyMain = GlobalKey<ScaffoldState>();
 final GlobalKey<ScaffoldState> keySettings = GlobalKey<ScaffoldState>();
-final SnackBar snackBar = const SnackBar(content: Text('Showing Snackbar'));
+final SnackBar snackBar = const SnackBar(content: Text('Showing SnackBar'));
 
 ThemeMode _themeMode = ThemeMode.light;
 
@@ -45,8 +50,10 @@ bool _darkTheme = false;
 class MainPageState extends State<MainPage> {
   @override
   Widget build(BuildContext context) {
+
     print('mainPage Building..');
     return Scaffold(
+
       key: keyMain,
       appBar: AppBar(
         title: Text('Fast Subway'),
@@ -75,50 +82,75 @@ class MainPageState extends State<MainPage> {
     );
   }
 }
-
 class SettingsPage extends StatefulWidget {
   const SettingsPage({Key key}) : super(key: key);
 
   @override
   SettingsState createState() => SettingsState();
 }
-
 class SettingsState extends State<SettingsPage> {
   @override
   Widget build(BuildContext settingsContext) {
     print("SettingsPage Building..");
-    print(_themeMode.toString());
     return Scaffold(
         key: keySettings,
         appBar: AppBar(
           title: const Text('Settings'),
+
         ),
         body: Material(
             child: Card(
           child: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[
             SwitchListTile(
               title: const Text('다크 모드'),
-              value: ,
+              value: _darkTheme,
               onChanged: (bool value) {
                 setState(() {
                   _darkTheme = value;
                   if (_darkTheme == true) {
                     _themeMode = ThemeMode.dark;
-                    MyAppState().build(settingsContext);
-                    MainPageState().build(settingsContext);
-                    SettingsState().build(settingsContext);
+                    HotRestartController.performHotRestart(context);
+
                   }
                   if (_darkTheme == false) {
                     _themeMode = ThemeMode.light;
-                    MyAppState().build(settingsContext);
-                    MainPageState().build(settingsContext);
-                    SettingsState().build(settingsContext);
-
+                    HotRestartController.performHotRestart(context);
                   }
                 });
               },
             )
           ]),
         )));
+  }
+}
+class HotRestartController extends StatefulWidget {
+  final Widget child;
+
+  HotRestartController({this.child});
+
+  static performHotRestart(BuildContext context) {
+    final _HotRestartControllerState state = context.ancestorStateOfType(const TypeMatcher<_HotRestartControllerState>());
+    state.performHotRestart();
+  }
+
+  @override
+  _HotRestartControllerState createState() => new _HotRestartControllerState();
+}
+
+class _HotRestartControllerState extends State<HotRestartController> {
+  Key key = new UniqueKey();
+
+  void performHotRestart() {
+    this.setState(() {
+      key = new UniqueKey();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return new Container(
+      key: key,
+      child: widget.child,
+    );
   }
 }
