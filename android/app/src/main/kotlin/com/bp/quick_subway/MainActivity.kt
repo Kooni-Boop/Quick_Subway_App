@@ -1,4 +1,4 @@
-package com.bp.fast_subway
+package com.bp.quick_subway
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -3,12 +3,10 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:location/location.dart';
-
+import 'package:flutter/services.dart';
 
 void main() {
-  runApp(new HotRestartController(
-      child: new MyApp()
-  ));
+  runApp(new HotRestartController(child: new MyApp()));
 }
 
 class MyApp extends StatefulWidget {
@@ -18,6 +16,23 @@ class MyApp extends StatefulWidget {
   MyAppState createState() => MyAppState();
 }
 
+//TODO: SAVE USER SETTINGS TO THE LOCAL DATA AND LOAD WHEN APP STARTS
+
+ThemeData _darkThemeData = new ThemeData(
+    accentColor: Colors.white10,
+    brightness: Brightness.dark,
+    accentColorBrightness: Brightness.dark,
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: Colors.black38, foregroundColor: Colors.white));
+
+ThemeData _lightThemeData = new ThemeData(
+    primarySwatch: Colors.indigo,
+    accentColor: Colors.white70,
+    brightness: Brightness.light,
+    accentColorBrightness: Brightness.light,
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: Colors.indigo, foregroundColor: Colors.white));
+
 class MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext mainContext) {
@@ -26,8 +41,8 @@ class MyAppState extends State<MyApp> {
         key: keyApp,
         home: MainPage(),
         themeMode: _themeMode,
-        theme: ThemeData(primarySwatch: Colors.indigo),
-        darkTheme: ThemeData(primarySwatch: Colors.deepPurple));
+        theme: _lightThemeData,
+        darkTheme: _darkThemeData);
   }
 }
 
@@ -50,13 +65,11 @@ bool _darkTheme = false;
 class MainPageState extends State<MainPage> {
   @override
   Widget build(BuildContext context) {
-
     print('mainPage Building..');
     return Scaffold(
-
       key: keyMain,
       appBar: AppBar(
-        title: Text('Fast Subway'),
+        title: Text('Quick Subway'),
         actions: <Widget>[
           IconButton(
               icon: Icon(Icons.settings),
@@ -70,7 +83,7 @@ class MainPageState extends State<MainPage> {
         Container(
           height: 50,
           child: Card(
-            color: Colors.white10,
+            color: Theme.of(context).accentColor,
             child: Center(child: Text('1231')),
           ),
         ),
@@ -82,12 +95,14 @@ class MainPageState extends State<MainPage> {
     );
   }
 }
+
 class SettingsPage extends StatefulWidget {
   const SettingsPage({Key key}) : super(key: key);
 
   @override
   SettingsState createState() => SettingsState();
 }
+
 class SettingsState extends State<SettingsPage> {
   @override
   Widget build(BuildContext settingsContext) {
@@ -95,8 +110,8 @@ class SettingsState extends State<SettingsPage> {
     return Scaffold(
         key: keySettings,
         appBar: AppBar(
-          title: const Text('Settings'),
-
+          title: Text('Settings'),
+          key: UniqueKey(),
         ),
         body: Material(
             child: Card(
@@ -104,16 +119,23 @@ class SettingsState extends State<SettingsPage> {
             SwitchListTile(
               title: const Text('다크 모드'),
               value: _darkTheme,
+              activeColor: Theme.of(context).primaryColor,
               onChanged: (bool value) {
                 setState(() {
                   _darkTheme = value;
                   if (_darkTheme == true) {
                     _themeMode = ThemeMode.dark;
+                    SystemChrome.setSystemUIOverlayStyle(
+                        SystemUiOverlayStyle.dark);
                     HotRestartController.performHotRestart(context);
-
                   }
                   if (_darkTheme == false) {
                     _themeMode = ThemeMode.light;
+                    SystemChrome.setSystemUIOverlayStyle(
+                        new SystemUiOverlayStyle(
+                            systemNavigationBarColor: Colors.black12,
+                            systemNavigationBarIconBrightness:
+                                Brightness.dark));
                     HotRestartController.performHotRestart(context);
                   }
                 });
@@ -123,13 +145,14 @@ class SettingsState extends State<SettingsPage> {
         )));
   }
 }
+
 class HotRestartController extends StatefulWidget {
   final Widget child;
 
   HotRestartController({this.child});
 
   static performHotRestart(BuildContext context) {
-    final _HotRestartControllerState state = context.ancestorStateOfType(const TypeMatcher<_HotRestartControllerState>());
+    final _HotRestartControllerState state = context.findAncestorStateOfType();
     state.performHotRestart();
   }
 
