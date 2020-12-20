@@ -4,8 +4,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:location/location.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/scheduler.dart';
 
-void main() {
+int _themeModes;
+
+main() {
   runApp(new HotRestartController(child: new MyApp()));
 }
 
@@ -16,18 +20,18 @@ class MyApp extends StatefulWidget {
   MyAppState createState() => MyAppState();
 }
 
-//TODO: SAVE USER SETTINGS TO THE LOCAL DATA AND LOAD WHEN APP STARTS
-
 ThemeData _darkThemeData = new ThemeData(
-    accentColor: Colors.white10,
+    accentColor: Color(0x2AFFFFFF),
     brightness: Brightness.dark,
     accentColorBrightness: Brightness.dark,
+    bottomNavigationBarTheme:
+        BottomNavigationBarThemeData(backgroundColor: Colors.black),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: Colors.black38, foregroundColor: Colors.white));
 
 ThemeData _lightThemeData = new ThemeData(
     primarySwatch: Colors.indigo,
-    accentColor: Colors.white70,
+    accentColor: Colors.white,
     brightness: Brightness.light,
     accentColorBrightness: Brightness.light,
     floatingActionButtonTheme: FloatingActionButtonThemeData(
@@ -37,6 +41,7 @@ class MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext mainContext) {
     print("MyApp Building..");
+    _themeSettingsGetter();
     return MaterialApp(
         key: keyApp,
         home: MainPage(),
@@ -44,14 +49,45 @@ class MyAppState extends State<MyApp> {
         theme: _lightThemeData,
         darkTheme: _darkThemeData);
   }
+
+  SharedPreferences sharedPrefs;
+
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((prefs) {
+      setState(() => sharedPrefs = prefs);
+      var brightness = SchedulerBinding.instance.window.platformBrightness;
+
+      if (prefs.getInt('themeModes') == 0) {
+        if (brightness == Brightness.dark) {
+          SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
+        }
+        if (brightness == Brightness.light) {
+          SystemChrome.setSystemUIOverlayStyle(new SystemUiOverlayStyle(
+              systemNavigationBarColor: Color(0x10000000),
+              systemNavigationBarIconBrightness: Brightness.dark));
+        }
+      }
+      if (prefs.getInt('themeModes') == 1) {
+        SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
+      }
+      if (prefs.getInt('themeModes') == 2) {
+        SystemChrome.setSystemUIOverlayStyle(new SystemUiOverlayStyle(
+            systemNavigationBarColor: Color(0x10000000),
+            systemNavigationBarIconBrightness: Brightness.dark));
+      }
+    });
+  }
 }
 
 final GlobalKey<ScaffoldState> keyApp = GlobalKey<ScaffoldState>();
 final GlobalKey<ScaffoldState> keyMain = GlobalKey<ScaffoldState>();
 final GlobalKey<ScaffoldState> keySettings = GlobalKey<ScaffoldState>();
+
 final SnackBar snackBar = const SnackBar(content: Text('Showing SnackBar'));
 
-ThemeMode _themeMode = ThemeMode.light;
+ThemeMode _themeMode;
 
 class MainPage extends StatefulWidget {
   const MainPage({Key key}) : super(key: key);
@@ -59,8 +95,6 @@ class MainPage extends StatefulWidget {
   @override
   MainPageState createState() => MainPageState();
 }
-
-bool _darkTheme = false;
 
 class MainPageState extends State<MainPage> {
   @override
@@ -89,11 +123,49 @@ class MainPageState extends State<MainPage> {
         ),
       ]),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () {
+          _incrementCounter();
+        },
         child: Icon(Icons.add),
       ),
     );
   }
+}
+
+Future<ThemeMode> _themeInit() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  _themeModes = prefs.getInt('themeModes');
+  if (_themeModes == 0) return ThemeMode.system;
+  if (_themeModes == 1) return ThemeMode.dark;
+  if (_themeModes == 2) return ThemeMode.light;
+  return ThemeMode.system;
+}
+
+_themeSettingsGetter() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  _themeModes = prefs.getInt('themeModes');
+  if (_themeModes == null) {
+    print('thememode is null');
+    _themeMode = ThemeMode.system;
+    await prefs.setInt('themeModes', 0);
+  }
+  print('thememode is $_themeModes');
+  if (_themeModes == 0) _themeMode = ThemeMode.system;
+  if (_themeModes == 1) _themeMode = ThemeMode.dark;
+  if (_themeModes == 2) _themeMode = ThemeMode.light;
+}
+
+_themeSettingsSetter(int value) async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  print('setting prefs $value');
+  await prefs.setInt('themeModes', value);
+}
+
+_incrementCounter() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  int counter = (prefs.getInt('counter') ?? 0) + 1;
+  print('Pressed $counter times.');
+  await prefs.setInt('counter', counter);
 }
 
 class SettingsPage extends StatefulWidget {
@@ -103,10 +175,13 @@ class SettingsPage extends StatefulWidget {
   SettingsState createState() => SettingsState();
 }
 
+int dropDownValue;
+
 class SettingsState extends State<SettingsPage> {
   @override
   Widget build(BuildContext settingsContext) {
     print("SettingsPage Building..");
+
     return Scaffold(
         key: keySettings,
         appBar: AppBar(
@@ -116,31 +191,58 @@ class SettingsState extends State<SettingsPage> {
         body: Material(
             child: Card(
           child: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[
-            SwitchListTile(
-              title: const Text('다크 모드'),
-              value: _darkTheme,
-              activeColor: Theme.of(context).primaryColor,
-              onChanged: (bool value) {
-                setState(() {
-                  _darkTheme = value;
-                  if (_darkTheme == true) {
-                    _themeMode = ThemeMode.dark;
-                    SystemChrome.setSystemUIOverlayStyle(
-                        SystemUiOverlayStyle.dark);
+            ListTile(
+              title: Text('테마 모드'),
+              trailing: DropdownButton(
+                value: _themeModes,
+                items: [
+                  DropdownMenuItem(
+                    child: Text('시스템 모드'),
+                    value: 0,
+                  ),
+                  DropdownMenuItem(
+                    child: Text('다크 모드'),
+                    value: 1,
+                  ),
+                  DropdownMenuItem(
+                    child: Text('라이트 모드'),
+                    value: 2,
+                  )
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _themeModes = value;
+                    _themeSettingsSetter(value);
+                    var brightness = MediaQuery.of(context).platformBrightness;
+                    if (value == 0) {
+                      if (brightness == Brightness.dark) {
+                        SystemChrome.setSystemUIOverlayStyle(
+                            SystemUiOverlayStyle.dark);
+                      }
+                      if (brightness == Brightness.light) {
+                        SystemChrome.setSystemUIOverlayStyle(
+                            new SystemUiOverlayStyle(
+                                systemNavigationBarColor: Color(0x10000000),
+                                systemNavigationBarIconBrightness:
+                                    Brightness.dark));
+                      }
+                    }
+                    if (value == 1) {
+                      SystemChrome.setSystemUIOverlayStyle(
+                          SystemUiOverlayStyle.dark);
+                    }
+                    if (value == 2) {
+                      SystemChrome.setSystemUIOverlayStyle(
+                          new SystemUiOverlayStyle(
+                              systemNavigationBarColor: Color(0x10000000),
+                              systemNavigationBarIconBrightness:
+                                  Brightness.dark));
+                    }
                     HotRestartController.performHotRestart(context);
-                  }
-                  if (_darkTheme == false) {
-                    _themeMode = ThemeMode.light;
-                    SystemChrome.setSystemUIOverlayStyle(
-                        new SystemUiOverlayStyle(
-                            systemNavigationBarColor: Colors.black12,
-                            systemNavigationBarIconBrightness:
-                                Brightness.dark));
-                    HotRestartController.performHotRestart(context);
-                  }
-                });
-              },
-            )
+                  });
+                },
+              ),
+            ),
           ]),
         )));
   }
