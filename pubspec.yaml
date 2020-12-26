@@ -22,6 +22,8 @@ environment:
 
 dependencies:
   location: ^3.0.0
+  http: ^0.12.2
+  xml: ^4.5.1
   shared_preferences: ^0.5.12
   flutter:
     sdk: flutter

@@ -6,12 +6,19 @@ import 'package:location/location.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/scheduler.dart';
-
-int _themeModes;
+import 'package:http/http.dart' as http;
+import './stations.dart';
+import 'dart:convert';
+import 'package:xml/xml.dart' as xml;
 
 main() {
   runApp(new HotRestartController(child: new MyApp()));
 }
+
+final String apiKey = '4f62534574626c613132315a4565564f';
+String stationNameInput = '';
+String requestUrl =
+    'http://swopenapi.seoul.go.kr/api/subway/$apiKey/xml/realtimeStationArrival/1/5/$stationNameInput';
 
 class MyApp extends StatefulWidget {
   const MyApp({Key key}) : super(key: key);
@@ -36,6 +43,8 @@ ThemeData _lightThemeData = new ThemeData(
     accentColorBrightness: Brightness.light,
     floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: Colors.indigo, foregroundColor: Colors.white));
+
+int _themeModes;
 
 class MyAppState extends State<MyApp> {
   @override
@@ -85,7 +94,8 @@ final GlobalKey<ScaffoldState> keyApp = GlobalKey<ScaffoldState>();
 final GlobalKey<ScaffoldState> keyMain = GlobalKey<ScaffoldState>();
 final GlobalKey<ScaffoldState> keySettings = GlobalKey<ScaffoldState>();
 
-final SnackBar snackBar = const SnackBar(content: Text('Showing SnackBar'));
+final SnackBar snackBarSuccess =
+    const SnackBar(content: Text('데이터를 불러오는데 성공하였습니다.'));
 
 ThemeMode _themeMode;
 
@@ -96,7 +106,17 @@ class MainPage extends StatefulWidget {
   MainPageState createState() => MainPageState();
 }
 
+List<String> stationsList = [];
+
 class MainPageState extends State<MainPage> {
+  final textBoxController = TextEditingController();
+
+  @override
+  void dispose() {
+    textBoxController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     print('mainPage Building..');
@@ -113,33 +133,88 @@ class MainPageState extends State<MainPage> {
               }),
         ],
       ),
-      body: ListView(padding: const EdgeInsets.all(5), children: <Widget>[
-        Container(
+      body: ListView(padding: const EdgeInsets.all(5), children: stationsList.map((e) {
+        return Container(
           height: 50,
           child: Card(
-            color: Theme.of(context).accentColor,
-            child: Center(child: Text('1231')),
+            child: Center(child: Text(e)
+            ),
           ),
-        ),
-      ]),
+        );
+      }).toList()),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          _incrementCounter();
+          _showMyDialog();
         },
         child: Icon(Icons.add),
       ),
     );
   }
+
+  final Text msgNoMatch = Text(
+    '잘못된 역 이름입니다.',
+    style: TextStyle(color: Colors.red),
+  );
+
+  final Text msgFailConnection = Text(
+    '서버 연결에 실패하였습니다.',
+    style: TextStyle(color: Colors.red),
+  );
+
+
+  Future<void> addStations() async{
+    stationNameInput = textBoxController.text;
+    print(requestUrl);
+    var rawData = await http.get(requestUrl);
+    var data = xml.XmlDocument.parse(rawData.body);
+    stationsList.add(data.text);
+  }
+
+  _showMyDialog() {
+    showDialog(
+        context: context,
+        builder: (context) {
+          return StatefulBuilder(
+            builder: (context, setState) {
+              return AlertDialog(
+                title: Text('역 추가'),
+                content: SingleChildScrollView(
+                  child: ListBody(
+                    children: <Widget>[
+                      msgFailConnection,
+                      TextField(
+                        controller: textBoxController,
+                      )
+                    ],
+                  ),
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    child: Text('취소'),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      textBoxController.clear();
+                    },
+                  ),
+                  TextButton(
+                    child: Text('추가'),
+                    onPressed: () {
+                      setState(() {
+
+                        addStations();
+                        textBoxController.clear();
+                      });
+                    },
+                  ),
+                ],
+              );
+            },
+          );
+        });
+  }
 }
 
-Future<ThemeMode> _themeInit() async {
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  _themeModes = prefs.getInt('themeModes');
-  if (_themeModes == 0) return ThemeMode.system;
-  if (_themeModes == 1) return ThemeMode.dark;
-  if (_themeModes == 2) return ThemeMode.light;
-  return ThemeMode.system;
-}
+
 
 _themeSettingsGetter() async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -159,13 +234,6 @@ _themeSettingsSetter(int value) async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
   print('setting prefs $value');
   await prefs.setInt('themeModes', value);
-}
-
-_incrementCounter() async {
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  int counter = (prefs.getInt('counter') ?? 0) + 1;
-  print('Pressed $counter times.');
-  await prefs.setInt('counter', counter);
 }
 
 class SettingsPage extends StatefulWidget {
