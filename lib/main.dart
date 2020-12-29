@@ -1,30 +1,67 @@
 import 'dart:io';
 import 'dart:ui';
+import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:location/location.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import './stations.dart';
 import 'dart:convert';
-import 'package:xml/xml.dart' as xml;
+import 'package:xml/xml.dart';
+import 'package:flutter/services.dart' show rootBundle;
+
+// import 'package:path_provider/path_provider.dart';
+//TODO: (Low Pr) Implement json local download in case server gets down.
 
 main() {
   runApp(new HotRestartController(child: new MyApp()));
 }
-
-final String apiKey = '4f62534574626c613132315a4565564f';
-String stationNameInput = '';
-String requestUrl =
-    'http://swopenapi.seoul.go.kr/api/subway/$apiKey/xml/realtimeStationArrival/1/5/$stationNameInput';
 
 class MyApp extends StatefulWidget {
   const MyApp({Key key}) : super(key: key);
 
   @override
   MyAppState createState() => MyAppState();
+}
+
+var jsonData;
+
+Future<List<Stations>> loadStations() async {
+  final response = await rootBundle.loadString('res/stations_data.json');
+  return compute(parseStations, response);
+}
+
+class Stations {
+  final String lineNum;
+  final String stationName;
+  final int stationNum;
+  final double latitude;
+  final double longitude;
+
+  Stations(
+      {this.lineNum,
+      this.stationName,
+      this.stationNum,
+      this.latitude,
+      this.longitude});
+
+  factory Stations.fromJson(Map<String, dynamic> json) {
+    return Stations(
+        lineNum: json['line'] as String,
+        stationName: json['name'] as String,
+        stationNum: json['code'] as int,
+        latitude: json['lat'] as double,
+        longitude: json['lng'] as double);
+  }
+}
+
+List<Stations> parseStations(String responseBody) {
+  final parsed = jsonDecode(responseBody).cast<Map<String, dynamic>>();
+  return parsed.map<Stations>((json) => Stations.fromJson(json)).toList();
 }
 
 ThemeData _darkThemeData = new ThemeData(
@@ -64,6 +101,7 @@ class MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
+    loadStations();
     SharedPreferences.getInstance().then((prefs) {
       setState(() => sharedPrefs = prefs);
       var brightness = SchedulerBinding.instance.window.platformBrightness;
@@ -108,6 +146,83 @@ class MainPage extends StatefulWidget {
 
 List<String> stationsList = [];
 
+final String apiKey = '4f62534574626c613132315a4565564f';
+
+final Text msgNoMatch = Text(
+  '잘못된 역 이름입니다.',
+  style: TextStyle(color: Colors.red),
+);
+
+final Text msgFailConnection = Text(
+  '서버 연결에 실패하였습니다.',
+  style: TextStyle(color: Colors.red),
+);
+
+final Text msgNoInput = Text(
+  '역 이름이 입력되지 않았습니다.',
+  style: TextStyle(color: Colors.red),
+);
+
+final Text defText = Text('역 이름을 \'역\' 글자를 빼고 입력해 주세요. (예:서울역 → 서울)');
+
+Text statusMsg = defText;
+
+Future<bool> addStation(String stationName) async {
+  String stationNameInput = '';
+  var parsed = json.decode(null);
+  print(parsed.toString());
+  if (stationName == '') return false;
+  stationNameInput = stationName;
+  // var rawData = await http.get(requestUrl);
+  // var body = utf8.decode(rawData.bodyBytes);
+  // var data = XmlDocument.parse(body);
+  // var statCode = data
+  //     .findAllElements('status')
+  //     .first
+  //     .text;
+  // print(statCode);
+  //
+  // if (statCode == '200') {
+  //   statusMsg = defText;
+  //   return true;
+  // }
+  // else if (statCode == '500') {
+  //   statusMsg = msgNoMatch;
+  //   return false;
+  // }
+  // else if (statCode != '200' && statCode != '500') {
+  //   statusMsg = msgFailConnection;
+  //   return false;
+  // }
+  return true;
+}
+
+Future<bool> addStations(String stationName) async {
+  String stationNameInput = '';
+  if (stationName == '') return false;
+  stationNameInput = stationName;
+  String requestUrl =
+      'http://swopenapi.seoul.go.kr/api/subway/$apiKey/xml/realtimeStationArrival/1/5/$stationNameInput';
+  print(requestUrl);
+  var rawData = await http.get(requestUrl);
+  var body = utf8.decode(rawData.bodyBytes);
+  var data = XmlDocument.parse(body);
+  var statCode = data.findAllElements('status').first.text;
+  print(statCode);
+
+  if (statCode == '200') {
+    statusMsg = defText;
+    return true;
+  } else if (statCode == '500') {
+    statusMsg = msgNoMatch;
+    return false;
+  } else if (statCode != '200' && statCode != '500') {
+    statusMsg = msgFailConnection;
+    return false;
+  }
+  return true;
+}
+
 class MainPageState extends State<MainPage> {
   final textBoxController = TextEditingController();
 
@@ -133,41 +248,54 @@ class MainPageState extends State<MainPage> {
               }),
         ],
       ),
-      body: ListView(padding: const EdgeInsets.all(5), children: stationsList.map((e) {
-        return Container(
-          height: 50,
-          child: Card(
-            child: Center(child: Text(e)
-            ),
-          ),
-        );
-      }).toList()),
+      body: ListView.builder(
+        itemCount: stationsList.length,
+        itemBuilder: (context, index) {
+          FutureBuilder(
+              future: loadStations(),
+              builder: (BuildContext context, AsyncSnapshot snapshot) {
+                if(snapshot.hasData) {return snapshot.hasData
+                ? Stations(lineNum: snapshot.data, stationName: snapshot.data, latitude: snapshot.data, longitude: snapshot.data)
+                    : Center(child: CircularProgressIndicator());
+                }
+                else {
+                  var newData = json.decode(snapshot.data.toString());
+                  var test = Stations.fromJson(newData);
+                  print('printingnewData$test');
+                }print('interlact');
+                  return Center(child: CircularProgressIndicator());
+              });
+          final item = stationsList[index];
+          return Dismissible(
+              key: Key(item),
+              onDismissed: (direction) {
+                setState(() {
+                  stationsList.removeAt(index);
+                });
+              },
+              background: Container(color: Colors.red),
+              child: ListTile(title: Text('$item')));
+        },
+      ),
+
+      // body: ListView(
+      //     padding: const EdgeInsets.all(5),
+      //     children: stationsList.map((e) {
+      //       return Container(
+      //         height: 50,
+      //         child: Card(
+      //           child: Center(child: Text(e)),
+      //         ),
+      //       );
+      //     }).toList()),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           _showMyDialog();
+          keyMain.currentState.build(context);
         },
         child: Icon(Icons.add),
       ),
     );
-  }
-
-  final Text msgNoMatch = Text(
-    '잘못된 역 이름입니다.',
-    style: TextStyle(color: Colors.red),
-  );
-
-  final Text msgFailConnection = Text(
-    '서버 연결에 실패하였습니다.',
-    style: TextStyle(color: Colors.red),
-  );
-
-
-  Future<void> addStations() async{
-    stationNameInput = textBoxController.text;
-    print(requestUrl);
-    var rawData = await http.get(requestUrl);
-    var data = xml.XmlDocument.parse(rawData.body);
-    stationsList.add(data.text);
   }
 
   _showMyDialog() {
@@ -181,7 +309,7 @@ class MainPageState extends State<MainPage> {
                 content: SingleChildScrollView(
                   child: ListBody(
                     children: <Widget>[
-                      msgFailConnection,
+                      statusMsg,
                       TextField(
                         controller: textBoxController,
                       )
@@ -194,15 +322,23 @@ class MainPageState extends State<MainPage> {
                     onPressed: () {
                       Navigator.of(context).pop();
                       textBoxController.clear();
+                      statusMsg = defText;
                     },
                   ),
                   TextButton(
                     child: Text('추가'),
-                    onPressed: () {
+                    onPressed: () async {
+                      var result = await addStations(textBoxController.text);
                       setState(() {
-
-                        addStations();
-                        textBoxController.clear();
+                        if (textBoxController.text == '')
+                          statusMsg = msgNoInput;
+                        else if (result && textBoxController.text != '') {
+                          stationsList.add(textBoxController.text);
+                          Navigator.of(context).pop();
+                          textBoxController.clear();
+                        } else {
+                          keyMain.currentState.build(context);
+                        }
                       });
                     },
                   ),
@@ -213,8 +349,6 @@ class MainPageState extends State<MainPage> {
         });
   }
 }
-
-
 
 _themeSettingsGetter() async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -253,7 +387,7 @@ class SettingsState extends State<SettingsPage> {
     return Scaffold(
         key: keySettings,
         appBar: AppBar(
-          title: Text('Settings'),
+          title: Text('설정'),
           key: UniqueKey(),
         ),
         body: Material(
