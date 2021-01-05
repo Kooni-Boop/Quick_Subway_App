@@ -13,9 +13,7 @@ import './stations.dart';
 import 'dart:convert';
 import 'package:xml/xml.dart';
 import 'package:flutter/services.dart' show rootBundle;
-
-// import 'package:path_provider/path_provider.dart';
-//TODO: (Low Pr) Implement json local download in case server gets down.
+import 'package:location_permissions/location_permissions.dart' as loc;
 
 main() {
   runApp(new HotRestartController(child: new MyApp()));
@@ -26,42 +24,6 @@ class MyApp extends StatefulWidget {
 
   @override
   MyAppState createState() => MyAppState();
-}
-
-var jsonData;
-
-Future<List<Stations>> loadStations() async {
-  final response = await rootBundle.loadString('res/stations_data.json');
-  return compute(parseStations, response);
-}
-
-class Stations {
-  final String lineNum;
-  final String stationName;
-  final int stationNum;
-  final double latitude;
-  final double longitude;
-
-  Stations(
-      {this.lineNum,
-      this.stationName,
-      this.stationNum,
-      this.latitude,
-      this.longitude});
-
-  factory Stations.fromJson(Map<String, dynamic> json) {
-    return Stations(
-        lineNum: json['line'] as String,
-        stationName: json['name'] as String,
-        stationNum: json['code'] as int,
-        latitude: json['lat'] as double,
-        longitude: json['lng'] as double);
-  }
-}
-
-List<Stations> parseStations(String responseBody) {
-  final parsed = jsonDecode(responseBody).cast<Map<String, dynamic>>();
-  return parsed.map<Stations>((json) => Stations.fromJson(json)).toList();
 }
 
 ThemeData _darkThemeData = new ThemeData(
@@ -82,12 +44,19 @@ ThemeData _lightThemeData = new ThemeData(
         backgroundColor: Colors.indigo, foregroundColor: Colors.white));
 
 int _themeModes;
+final Location location = Location();
+
+bool locTrigger = true;
+StreamSubscription<LocationData> _locationSubscription;
+
+String _error;
 
 class MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext mainContext) {
     print("MyApp Building..");
     _themeSettingsGetter();
+
     return MaterialApp(
         key: keyApp,
         home: MainPage(),
@@ -95,38 +64,10 @@ class MyAppState extends State<MyApp> {
         theme: _lightThemeData,
         darkTheme: _darkThemeData);
   }
-
-  SharedPreferences sharedPrefs;
-
-  @override
-  void initState() {
-    super.initState();
-    loadStations();
-    SharedPreferences.getInstance().then((prefs) {
-      setState(() => sharedPrefs = prefs);
-      var brightness = SchedulerBinding.instance.window.platformBrightness;
-
-      if (prefs.getInt('themeModes') == 0) {
-        if (brightness == Brightness.dark) {
-          SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
-        }
-        if (brightness == Brightness.light) {
-          SystemChrome.setSystemUIOverlayStyle(new SystemUiOverlayStyle(
-              systemNavigationBarColor: Color(0x10000000),
-              systemNavigationBarIconBrightness: Brightness.dark));
-        }
-      }
-      if (prefs.getInt('themeModes') == 1) {
-        SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
-      }
-      if (prefs.getInt('themeModes') == 2) {
-        SystemChrome.setSystemUIOverlayStyle(new SystemUiOverlayStyle(
-            systemNavigationBarColor: Color(0x10000000),
-            systemNavigationBarIconBrightness: Brightness.dark));
-      }
-    });
-  }
 }
+
+List<Station> stations = [];
+List<Station> newStations = [];
 
 final GlobalKey<ScaffoldState> keyApp = GlobalKey<ScaffoldState>();
 final GlobalKey<ScaffoldState> keyMain = GlobalKey<ScaffoldState>();
@@ -149,7 +90,7 @@ List<String> stationsList = [];
 final String apiKey = '4f62534574626c613132315a4565564f';
 
 final Text msgNoMatch = Text(
-  '잘못된 역 이름입니다.',
+  '해당 역을 찾지 못하였습니다.',
   style: TextStyle(color: Colors.red),
 );
 
@@ -160,6 +101,11 @@ final Text msgFailConnection = Text(
 
 final Text msgNoInput = Text(
   '역 이름이 입력되지 않았습니다.',
+  style: TextStyle(color: Colors.red),
+);
+
+final Text msgDuplicate = Text(
+  '이미 추가된 역입니다.',
   style: TextStyle(color: Colors.red),
 );
 
@@ -223,6 +169,45 @@ Future<bool> addStations(String stationName) async {
   return true;
 }
 
+class Stations {
+  final String lineNum;
+  final String stationName;
+  final int stationNum;
+  final double latitude;
+  final double longitude;
+
+  Stations(
+      {this.lineNum,
+      this.stationName,
+      this.stationNum,
+      this.latitude,
+      this.longitude});
+
+  factory Stations.fromJson(Map<String, dynamic> json) {
+    return Stations(
+        lineNum: json['line'] as String,
+        stationName: json['name'] as String,
+        stationNum: json['code'] as int,
+        latitude: json['lat'] as double,
+        longitude: json['lng'] as double);
+  }
+}
+
+class Station {
+  final String line;
+  final String name;
+  final int code;
+  final double lat;
+  final double lng;
+
+  Station(this.line, this.name, this.code, this.lat, this.lng);
+}
+
+List<Stations> parseStations(String responseBody) {
+  final parsed = jsonDecode(responseBody).cast<Map<String, dynamic>>();
+  return parsed.map<Stations>((json) => Stations.fromJson(json)).toList();
+}
+
 class MainPageState extends State<MainPage> {
   final textBoxController = TextEditingController();
 
@@ -232,70 +217,206 @@ class MainPageState extends State<MainPage> {
     super.dispose();
   }
 
+  bool isFired = false;
+  bool isLocAllowed = false;
+
+  SharedPreferences sharedPrefs;
+
+  Future<void> _stopListen() async {
+    _locationSubscription.cancel();
+  }
+
+  Future _getLocalStations;
+  LocationData _location;
+  @override
+  void initState() {
+    super.initState();
+    getLocPermission();
+    getLocation();
+    SharedPreferences.getInstance().then((prefs) {
+      setState(() => sharedPrefs = prefs);
+      var brightness = SchedulerBinding.instance.window.platformBrightness;
+      isFired = false;
+      _getLocalStations = getLocalStations();
+
+      stations = [];
+      newStations = [];
+
+      if (prefs.getInt('themeModes') == 0) {
+        if (brightness == Brightness.dark) {
+          SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
+        }
+        if (brightness == Brightness.light) {
+          SystemChrome.setSystemUIOverlayStyle(new SystemUiOverlayStyle(
+              systemNavigationBarColor: Color(0x10000000),
+              systemNavigationBarIconBrightness: Brightness.dark));
+        }
+      }
+      if (prefs.getInt('themeModes') == 1) {
+        SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
+      }
+      if (prefs.getInt('themeModes') == 2) {
+        SystemChrome.setSystemUIOverlayStyle(new SystemUiOverlayStyle(
+            systemNavigationBarColor: Color(0x10000000),
+            systemNavigationBarIconBrightness: Brightness.dark));
+      }
+    });
+  }
+
+  Future<void> getLocation() async{
+    _locationSubscription =
+        location.onLocationChanged.handleError((dynamic err) {
+          setState(() {
+            _error = err.code;
+          });
+          _locationSubscription.cancel();
+        }).listen((LocationData currentLocation) {
+          setState(() {
+            _error = null;
+            _location = currentLocation;
+            print(_location.longitude.toString());
+          });
+        });
+  }
+
+  Future<void> getLocPermission() async {
+    loc.PermissionStatus permission =
+    await loc.LocationPermissions().checkPermissionStatus();
+
+    if (permission == loc.PermissionStatus.denied)
+      await loc.LocationPermissions().requestPermissions();
+  }
+
+  Future<List<Station>> getLocalStations() async {
+
+    if (!isFired) {
+      isFired = true;
+      print('0');
+      if (stations.length == 0) {
+        var data = await rootBundle.loadString('res/stations_data.json');
+        var jsonData = json.decode(data);
+        for (var i in jsonData) {
+          Station station =
+              Station(i['line'], i['name'], i['code'], i['lat'], i['lng']);
+          stations.add(station);
+        }
+      }
+      print('number of newStations are ' + newStations.length.toString());
+      print('number of stations are ' + stations.length.toString());
+      print('1');
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      print('2');
+      List<String> localStationsNameList = prefs.getStringList('stationName');
+      if(localStationsNameList == null) {localStationsNameList = [];
+      newStations = [];
+      return newStations;}
+      print('localstationnamelists are' +
+          localStationsNameList.length.toString());
+      for (var i in localStationsNameList) {
+        for (var j in stations) {
+          if (j.name == i) {
+            newStations.add(j);
+            break;
+          }
+        }
+      }
+    }
+    if(newStations == null) newStations = [];
+    print('returning');
+    return newStations;
+  }
+
+  Future<List<Stations>> loadStations() async {
+    final response = await rootBundle.loadString('res/stations_data.json');
+    return compute(parseStations, response);
+  }
+
+  Future<void> removeStation() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    print('removing station');
+    List<String> stations = [];
+    newStations.forEach((e) {
+      stations.add(e.name);
+    });
+    prefs.setStringList('stationName', stations);
+  }
+
+  Future<int> setLocalStations(String stationName) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    print('setting names');
+    List<String> stationNames = [];
+    stationNames = prefs.getStringList('stationName');
+    if (stationNames == null) stationNames = [];
+    for (var i in stationNames) if (i == stationName) return 1;
+
+    stationNames.add(stationName);
+    await prefs.setStringList('stationName', stationNames);
+    for (var i in stations) {
+      if (i.name == stationName) {
+        newStations.add(i);
+        print('setting names succeeded');
+
+        return 0;
+      }
+    }
+    return 2;
+  }
+
   @override
   Widget build(BuildContext context) {
     print('mainPage Building..');
     return Scaffold(
-      key: keyMain,
-      appBar: AppBar(
-        title: Text('Quick Subway'),
-        actions: <Widget>[
-          IconButton(
-              icon: Icon(Icons.settings),
-              onPressed: () {
-                Navigator.push(context,
-                    MaterialPageRoute(builder: (context) => SettingsPage()));
-              }),
-        ],
-      ),
-      body: ListView.builder(
-        itemCount: stationsList.length,
-        itemBuilder: (context, index) {
-          FutureBuilder(
-              future: loadStations(),
-              builder: (BuildContext context, AsyncSnapshot snapshot) {
-                if(snapshot.hasData) {return snapshot.hasData
-                ? Stations(lineNum: snapshot.data, stationName: snapshot.data, latitude: snapshot.data, longitude: snapshot.data)
-                    : Center(child: CircularProgressIndicator());
-                }
-                else {
-                  var newData = json.decode(snapshot.data.toString());
-                  var test = Stations.fromJson(newData);
-                  print('printingnewData$test');
-                }print('interlact');
-                  return Center(child: CircularProgressIndicator());
-              });
-          final item = stationsList[index];
-          return Dismissible(
-              key: Key(item),
-              onDismissed: (direction) {
-                setState(() {
-                  stationsList.removeAt(index);
-                });
-              },
-              background: Container(color: Colors.red),
-              child: ListTile(title: Text('$item')));
-        },
-      ),
-
-      // body: ListView(
-      //     padding: const EdgeInsets.all(5),
-      //     children: stationsList.map((e) {
-      //       return Container(
-      //         height: 50,
-      //         child: Card(
-      //           child: Center(child: Text(e)),
-      //         ),
-      //       );
-      //     }).toList()),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _showMyDialog();
-          keyMain.currentState.build(context);
-        },
-        child: Icon(Icons.add),
-      ),
-    );
+        key: keyMain,
+        appBar: AppBar(
+          title: Text('Quick Subway'),
+          actions: <Widget>[
+            IconButton(
+                icon: Icon(Icons.settings),
+                onPressed: () {
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (context) => SettingsPage()));
+                }),
+          ],
+        ),
+        body: Container(
+            child: FutureBuilder(
+                future: _getLocalStations,
+                builder: (BuildContext context, AsyncSnapshot snapshot) {
+                  if (snapshot.data == null) {
+                    return Container(
+                        child: Center(
+                            child: CircularProgressIndicator(
+                      backgroundColor: Colors.black12,
+                    )));
+                  } else {
+                    return ListView.builder(
+                        itemCount: snapshot.data.length,
+                        itemBuilder: (BuildContext context, int index) {
+                          var item = newStations[index];
+                          return Dismissible(
+                              key: Key(item.name.toString()),
+                              onDismissed: (direction) {
+                                setState(() {
+                                  newStations.removeAt(index);
+                                  removeStation();
+                                });
+                              },
+                              background: Container(color: Colors.red),
+                              child: ListTile(
+                                title: Text(snapshot.data[index].name),
+                                trailing: Text(snapshot.data[index].line),
+                                subtitle: Text(_location.longitude.toString()),
+                              ));
+                        });
+                  }
+                })),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            _showMyDialog();
+            keyMain.currentState.build(context);
+          },
+          child: Icon(Icons.add),
+        ));
   }
 
   _showMyDialog() {
@@ -328,15 +449,20 @@ class MainPageState extends State<MainPage> {
                   TextButton(
                     child: Text('추가'),
                     onPressed: () async {
-                      var result = await addStations(textBoxController.text);
+                      var result =
+                          await setLocalStations(textBoxController.text);
                       setState(() {
                         if (textBoxController.text == '')
                           statusMsg = msgNoInput;
-                        else if (result && textBoxController.text != '') {
-                          stationsList.add(textBoxController.text);
+                        else if (result == 1) {
+                          statusMsg = msgDuplicate;
+                        } else if (result == 2) {
+                          statusMsg = msgNoMatch;
+                        } else if (result == 0 &&
+                            textBoxController.text != '') {
+                          print('adding station successful');
                           Navigator.of(context).pop();
                           textBoxController.clear();
-                        } else {
                           keyMain.currentState.build(context);
                         }
                       });
