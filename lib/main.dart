@@ -47,7 +47,7 @@ int _themeModes;
 final Location location = Location();
 
 bool locTrigger = true;
-StreamSubscription<LocationData> _locationSubscription;
+
 
 String _error;
 
@@ -232,7 +232,6 @@ class MainPageState extends State<MainPage> {
   void initState() {
     super.initState();
     getLocPermission();
-    getLocation();
     SharedPreferences.getInstance().then((prefs) {
       setState(() => sharedPrefs = prefs);
       var brightness = SchedulerBinding.instance.window.platformBrightness;
@@ -264,12 +263,13 @@ class MainPageState extends State<MainPage> {
   }
 
   Future<void> getLocation() async{
+    var result = location.requestPermission();
+    print(result);
     _locationSubscription =
         location.onLocationChanged.handleError((dynamic err) {
           setState(() {
             _error = err.code;
           });
-          _locationSubscription.cancel();
         }).listen((LocationData currentLocation) {
           setState(() {
             _error = null;
@@ -283,10 +283,11 @@ class MainPageState extends State<MainPage> {
     loc.PermissionStatus permission =
     await loc.LocationPermissions().checkPermissionStatus();
 
-    if (permission == loc.PermissionStatus.denied)
+    if (permission != loc.PermissionStatus.granted)
       await loc.LocationPermissions().requestPermissions();
   }
 
+  StreamSubscription<LocationData> _locationSubscription;
   Future<List<Station>> getLocalStations() async {
 
     if (!isFired) {
@@ -380,7 +381,7 @@ class MainPageState extends State<MainPage> {
         ),
         body: Container(
             child: FutureBuilder(
-                future: _getLocalStations,
+                future: _getLocalStations.whenComplete(() => getLocation()),
                 builder: (BuildContext context, AsyncSnapshot snapshot) {
                   if (snapshot.data == null) {
                     return Container(
