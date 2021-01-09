@@ -48,7 +48,7 @@ final Location location = Location();
 
 bool locTrigger = true;
 
-
+SharedPreferences sharedPrefs;
 String _error;
 
 class MyAppState extends State<MyApp> {
@@ -63,6 +63,37 @@ class MyAppState extends State<MyApp> {
         themeMode: _themeMode,
         theme: _lightThemeData,
         darkTheme: _darkThemeData);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((prefs) {
+      setState(() => sharedPrefs = prefs);
+      var brightness = SchedulerBinding.instance.window.platformBrightness;
+
+      stations = [];
+      newStations = [];
+
+      if (prefs.getInt('themeModes') == 0) {
+        if (brightness == Brightness.dark) {
+          SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
+        }
+        if (brightness == Brightness.light) {
+          SystemChrome.setSystemUIOverlayStyle(new SystemUiOverlayStyle(
+              systemNavigationBarColor: Color(0x10000000),
+              systemNavigationBarIconBrightness: Brightness.dark));
+        }
+      }
+      if (prefs.getInt('themeModes') == 1) {
+        SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
+      }
+      if (prefs.getInt('themeModes') == 2) {
+        SystemChrome.setSystemUIOverlayStyle(new SystemUiOverlayStyle(
+            systemNavigationBarColor: Color(0x10000000),
+            systemNavigationBarIconBrightness: Brightness.dark));
+      }
+    });
   }
 }
 
@@ -228,68 +259,50 @@ class MainPageState extends State<MainPage> {
 
   Future _getLocalStations;
   LocationData _location;
+
   @override
   void initState() {
     super.initState();
-    getLocPermission();
-    SharedPreferences.getInstance().then((prefs) {
-      setState(() => sharedPrefs = prefs);
-      var brightness = SchedulerBinding.instance.window.platformBrightness;
-      isFired = false;
-      _getLocalStations = getLocalStations();
+    getLocPermission().then((value) {
+      SharedPreferences.getInstance().then((prefs) {
+        setState(() => sharedPrefs = prefs);
+        isFired = false;
+        _getLocalStations = getLocalStations();
 
-      stations = [];
-      newStations = [];
-
-      if (prefs.getInt('themeModes') == 0) {
-        if (brightness == Brightness.dark) {
-          SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
-        }
-        if (brightness == Brightness.light) {
-          SystemChrome.setSystemUIOverlayStyle(new SystemUiOverlayStyle(
-              systemNavigationBarColor: Color(0x10000000),
-              systemNavigationBarIconBrightness: Brightness.dark));
-        }
-      }
-      if (prefs.getInt('themeModes') == 1) {
-        SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
-      }
-      if (prefs.getInt('themeModes') == 2) {
-        SystemChrome.setSystemUIOverlayStyle(new SystemUiOverlayStyle(
-            systemNavigationBarColor: Color(0x10000000),
-            systemNavigationBarIconBrightness: Brightness.dark));
-      }
+        stations = [];
+        newStations = [];
+      });
     });
   }
 
-  Future<void> getLocation() async{
+  Future<void> getLocation() async {
     var result = location.requestPermission();
     print(result);
     _locationSubscription =
         location.onLocationChanged.handleError((dynamic err) {
-          setState(() {
-            _error = err.code;
-          });
-        }).listen((LocationData currentLocation) {
-          setState(() {
-            _error = null;
-            _location = currentLocation;
-            print(_location.longitude.toString());
-          });
-        });
+      setState(() {
+        _error = err.code;
+      });
+    }).listen((LocationData currentLocation) {
+      setState(() {
+        _error = null;
+        _location = currentLocation;
+        print(_location.longitude.toString());
+      });
+    });
   }
 
   Future<void> getLocPermission() async {
     loc.PermissionStatus permission =
-    await loc.LocationPermissions().checkPermissionStatus();
+        await loc.LocationPermissions().checkPermissionStatus();
 
     if (permission != loc.PermissionStatus.granted)
       await loc.LocationPermissions().requestPermissions();
   }
 
   StreamSubscription<LocationData> _locationSubscription;
-  Future<List<Station>> getLocalStations() async {
 
+  Future<List<Station>> getLocalStations() async {
     if (!isFired) {
       isFired = true;
       print('0');
@@ -308,9 +321,11 @@ class MainPageState extends State<MainPage> {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       print('2');
       List<String> localStationsNameList = prefs.getStringList('stationName');
-      if(localStationsNameList == null) {localStationsNameList = [];
-      newStations = [];
-      return newStations;}
+      if (localStationsNameList == null) {
+        localStationsNameList = [];
+        newStations = [];
+        return newStations;
+      }
       print('localstationnamelists are' +
           localStationsNameList.length.toString());
       for (var i in localStationsNameList) {
@@ -322,7 +337,7 @@ class MainPageState extends State<MainPage> {
         }
       }
     }
-    if(newStations == null) newStations = [];
+    if (newStations == null) newStations = [];
     print('returning');
     return newStations;
   }
