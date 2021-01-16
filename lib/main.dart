@@ -321,6 +321,7 @@ class MainPageState extends State<MainPage> {
         _positionStreamSubscription = null;
       }).listen((position) {setState(() {
         _position = position;
+        print('${_position.longitude}, ${_position.latitude}');
       }); });
     }
   }
@@ -476,7 +477,7 @@ class MainPageState extends State<MainPage> {
                               child: ListTile(
                                 title: Text(snapshot.data[index].name),
                                 trailing: Text(snapshot.data[index].line),
-                                subtitle: Text(_position.longitude.toString()),
+                                subtitle: Text('${_position.latitude}, ${_position.longitude}'),
                               ));
                         });
                   }
