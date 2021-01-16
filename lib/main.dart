@@ -1,10 +1,12 @@
 import 'dart:io';
 import 'dart:ui';
 import 'dart:async';
-import 'package:flutter/cupertino.dart';
+
+// import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:location/location.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:flutter/services.dart';
+// import 'package:location_permissions/location_permissions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/foundation.dart';
@@ -13,7 +15,7 @@ import './stations.dart';
 import 'dart:convert';
 import 'package:xml/xml.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:location_permissions/location_permissions.dart' as loc;
+// import 'package:location_permissions/location_permissions.dart' as loc;
 
 main() {
   runApp(new HotRestartController(child: new MyApp()));
@@ -44,14 +46,14 @@ ThemeData _lightThemeData = new ThemeData(
         backgroundColor: Colors.indigo, foregroundColor: Colors.white));
 
 int _themeModes;
-final Location location = Location();
+// final Location location = Location();
 
 bool locTrigger = true;
 
 SharedPreferences sharedPrefs;
 String _error;
 
-class MyAppState extends State<MyApp> {
+class MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext mainContext) {
     print("MyApp Building..");
@@ -150,6 +152,7 @@ Future<bool> addStation(String stationName) async {
   print(parsed.toString());
   if (stationName == '') return false;
   stationNameInput = stationName;
+
   // var rawData = await http.get(requestUrl);
   // var body = utf8.decode(rawData.bodyBytes);
   // var data = XmlDocument.parse(body);
@@ -242,65 +245,107 @@ List<Stations> parseStations(String responseBody) {
 class MainPageState extends State<MainPage> {
   final textBoxController = TextEditingController();
 
-  @override
-  void dispose() {
-    textBoxController.dispose();
-    super.dispose();
-  }
+  // @override
+  // void dispose() {
+  //   super.dispose();
+  //   textBoxController.dispose();
+  //   _stopListen();
+  // }
 
   bool isFired = false;
   bool isLocAllowed = false;
 
   SharedPreferences sharedPrefs;
-
-  Future<void> _stopListen() async {
-    _locationSubscription.cancel();
-  }
+  //
+  // Future<void> _stopListen() async {
+  //   _locationSubscription.cancel();
+  // }
 
   Future _getLocalStations;
-  LocationData _location;
+
+  // LocationData _location;
 
   @override
   void initState() {
     super.initState();
-    getLocPermission().then((value) {
-      SharedPreferences.getInstance().then((prefs) {
-        setState(() => sharedPrefs = prefs);
-        isFired = false;
-        _getLocalStations = getLocalStations();
-
-        stations = [];
-        newStations = [];
-      });
+    // getLocPermission().then((value) {
+    SharedPreferences.getInstance().then((prefs) {
+      setState(() => sharedPrefs = prefs);
+      isFired = false;
+      _getLocalStations = getLocalStations();
+      stations = [];
+      newStations = [];
     });
+    // });
   }
+
+  // Future<void> getLocation() async {
+  //   try {
+  //     await location.serviceEnabled();
+  //   } on Exception catch (_) {
+  //     return null;
+  //   }
+  //   var result = await location.requestPermission();
+  //   if (result == PermissionStatus.granted) {
+  //     print(result);
+  //     location.enableBackgroundMode();
+  //     _locationSubscription =
+  //         location.onLocationChanged.handleError((dynamic err) {
+  //       setState(() {
+  //         _error = err.code;
+  //       });
+  //     }).listen((LocationData currentLocation) {
+  //       setState(() {
+  //         _error = null;
+  //         _location = currentLocation;
+  //         print(_location.longitude.toString());
+  //       });
+  //     });
+  //   }
+  // }
+  LocationPermission locationPermission = LocationPermission.denied;
 
   Future<void> getLocation() async {
-    var result = location.requestPermission();
-    print(result);
-    _locationSubscription =
-        location.onLocationChanged.handleError((dynamic err) {
-      setState(() {
-        _error = err.code;
-      });
-    }).listen((LocationData currentLocation) {
-      setState(() {
-        _error = null;
-        _location = currentLocation;
-        print(_location.longitude.toString());
-      });
-    });
+    locationPermission = await Geolocator.checkPermission();
+    if (locationPermission == LocationPermission.denied)
+      await Geolocator.requestPermission();
+    if (locationPermission == LocationPermission.deniedForever)
+      locationFailedDialog();
+    if (locationPermission == LocationPermission.always ||
+        locationPermission == LocationPermission.whileInUse) {}
   }
 
-  Future<void> getLocPermission() async {
-    loc.PermissionStatus permission =
-        await loc.LocationPermissions().checkPermissionStatus();
-
-    if (permission != loc.PermissionStatus.granted)
-      await loc.LocationPermissions().requestPermissions();
+  void locationFailedDialog() async {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('위치 오류'),
+          content: Text('앱의 위치 권한이 거부되었습니다. 앱 설정에서 위치 권한을 허용해 주세요'),
+          actions: [
+            TextButton(
+              child: Text('앱 설정으로 이동'),
+              onPressed: () => Geolocator.openLocationSettings(),
+            ),
+            TextButton(
+              child: Text('취소'),
+              onPressed: () => Navigator.of(context).pop(),
+            )
+          ],
+        );
+      },
+    );
   }
 
-  StreamSubscription<LocationData> _locationSubscription;
+  // Future<void> getLocPermission() async {
+  //   loc.PermissionStatus permission =
+  //       await loc.LocationPermissions().checkPermissionStatus();
+  //
+  //   if (permission != loc.PermissionStatus.granted)
+  //     await loc.LocationPermissions().requestPermissions();
+  // }
+
+  // StreamSubscription<LocationData> _locationSubscription;
 
   Future<List<Station>> getLocalStations() async {
     if (!isFired) {

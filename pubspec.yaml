@@ -22,11 +22,10 @@ environment:
 
 dependencies:
   path_provider: ^1.6.24
-  location: ^3.2.1
+  geolocator: ^6.1.13
   http: ^0.12.2
   xml: ^4.5.1
   shared_preferences: ^0.5.12+4
-  location_permissions: ^3.0.0
   flutter:
     sdk: flutter
 
