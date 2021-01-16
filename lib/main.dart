@@ -304,6 +304,8 @@ class MainPageState extends State<MainPage> {
   //   }
   // }
   LocationPermission locationPermission = LocationPermission.denied;
+  StreamSubscription<Position> _positionStreamSubscription;
+  Position _position;
 
   Future<void> getLocation() async {
     locationPermission = await Geolocator.checkPermission();
@@ -312,7 +314,15 @@ class MainPageState extends State<MainPage> {
     if (locationPermission == LocationPermission.deniedForever)
       locationFailedDialog();
     if (locationPermission == LocationPermission.always ||
-        locationPermission == LocationPermission.whileInUse) {}
+        locationPermission == LocationPermission.whileInUse) {
+      final _positionStream = Geolocator.getPositionStream();
+      _positionStreamSubscription = _positionStream.handleError((onError) {
+        _positionStreamSubscription.cancel();
+        _positionStreamSubscription = null;
+      }).listen((position) {setState(() {
+        _position = position;
+      }); });
+    }
   }
 
   void locationFailedDialog() async {
@@ -466,7 +476,7 @@ class MainPageState extends State<MainPage> {
                               child: ListTile(
                                 title: Text(snapshot.data[index].name),
                                 trailing: Text(snapshot.data[index].line),
-                                subtitle: Text(_location.longitude.toString()),
+                                subtitle: Text(_position.longitude.toString()),
                               ));
                         });
                   }
