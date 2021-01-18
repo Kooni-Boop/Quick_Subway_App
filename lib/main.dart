@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:ui';
 import 'dart:async';
-
 // import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -16,10 +15,9 @@ import 'dart:convert';
 import 'package:xml/xml.dart';
 import 'package:flutter/services.dart' show rootBundle;
 // import 'package:location_permissions/location_permissions.dart' as loc;
+import 'package:get/get.dart';
 
-main() {
-  runApp(new HotRestartController(child: new MyApp()));
-}
+main() => runApp(GetMaterialApp(home: MyApp()));
 
 class MyApp extends StatefulWidget {
   const MyApp({Key key}) : super(key: key);
@@ -43,7 +41,8 @@ ThemeData _lightThemeData = new ThemeData(
     brightness: Brightness.light,
     accentColorBrightness: Brightness.light,
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: Colors.indigo, foregroundColor: Colors.white));
+        backgroundColor: Colors.indigo, foregroundColor: Colors.white)
+);
 
 int _themeModes;
 // final Location location = Location();
@@ -82,18 +81,18 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
           SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
         }
         if (brightness == Brightness.light) {
-          SystemChrome.setSystemUIOverlayStyle(new SystemUiOverlayStyle(
-              systemNavigationBarColor: Color(0x10000000),
-              systemNavigationBarIconBrightness: Brightness.dark));
+          // SystemChrome.setSystemUIOverlayStyle(new SystemUiOverlayStyle(
+          //     systemNavigationBarColor: Color(0x10000000),
+          //     systemNavigationBarIconBrightness: Brightness.dark));
         }
       }
       if (prefs.getInt('themeModes') == 1) {
         SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
       }
       if (prefs.getInt('themeModes') == 2) {
-        SystemChrome.setSystemUIOverlayStyle(new SystemUiOverlayStyle(
-            systemNavigationBarColor: Color(0x10000000),
-            systemNavigationBarIconBrightness: Brightness.dark));
+        // SystemChrome.setSystemUIOverlayStyle(new SystemUiOverlayStyle(
+        //     systemNavigationBarColor: Color(0x10000000),
+        //     systemNavigationBarIconBrightness: Brightness.dark));
       }
     });
   }
@@ -421,13 +420,12 @@ class MainPageState extends State<MainPage> {
     if (stationNames == null) stationNames = [];
     for (var i in stationNames) if (i == stationName) return 1;
 
-    stationNames.add(stationName);
-    await prefs.setStringList('stationName', stationNames);
     for (var i in stations) {
       if (i.name == stationName) {
         newStations.add(i);
+        stationNames.add(stationName);
+        await prefs.setStringList('stationName', stationNames);
         print('setting names succeeded');
-
         return 0;
       }
     }
@@ -463,7 +461,7 @@ class MainPageState extends State<MainPage> {
                   } else {
                     return ListView.builder(
                         itemCount: snapshot.data.length,
-                        itemBuilder: (BuildContext context, int index) {
+                        itemBuilder: (BuildContext buildContext, int index) {
                           var item = newStations[index];
                           return Dismissible(
                               key: Key(item.name.toString()),
@@ -628,54 +626,26 @@ class SettingsState extends State<SettingsPage> {
                       }
                     }
                     if (value == 1) {
+                      Get.changeTheme(ThemeData.dark());
                       SystemChrome.setSystemUIOverlayStyle(
                           SystemUiOverlayStyle.dark);
                     }
                     if (value == 2) {
+                      Get.changeTheme(ThemeData.light());
                       SystemChrome.setSystemUIOverlayStyle(
                           new SystemUiOverlayStyle(
                               systemNavigationBarColor: Color(0x10000000),
                               systemNavigationBarIconBrightness:
-                                  Brightness.dark));
+                                  Brightness.dark)
+
+                      );
                     }
-                    HotRestartController.performHotRestart(context);
+
                   });
                 },
               ),
             ),
           ]),
         )));
-  }
-}
-
-class HotRestartController extends StatefulWidget {
-  final Widget child;
-
-  HotRestartController({this.child});
-
-  static performHotRestart(BuildContext context) {
-    final _HotRestartControllerState state = context.findAncestorStateOfType();
-    state.performHotRestart();
-  }
-
-  @override
-  _HotRestartControllerState createState() => new _HotRestartControllerState();
-}
-
-class _HotRestartControllerState extends State<HotRestartController> {
-  Key key = new UniqueKey();
-
-  void performHotRestart() {
-    this.setState(() {
-      key = new UniqueKey();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return new Container(
-      key: key,
-      child: widget.child,
-    );
   }
 }

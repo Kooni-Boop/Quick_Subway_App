@@ -25,6 +25,7 @@ dependencies:
   geolocator: ^6.1.13
   http: ^0.12.2
   xml: ^4.5.1
+  get:
   shared_preferences: ^0.5.12+4
   flutter:
     sdk: flutter
