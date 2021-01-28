@@ -21,12 +21,13 @@ environment:
   sdk: ">=2.7.0 <3.0.0"
 
 dependencies:
-  path_provider: ^1.6.24
-  geolocator: ^6.1.13
-  http: ^0.12.2
-  xml: ^4.5.1
+  path_provider:
+  geolocator:
+  http:
+  xml:
   get:
-  shared_preferences: ^0.5.12+4
+  get_storage:
+  shared_preferences:
   flutter:
     sdk: flutter
 

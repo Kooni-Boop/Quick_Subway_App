@@ -1,23 +1,46 @@
 import 'dart:io';
 import 'dart:ui';
 import 'dart:async';
-// import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/services.dart';
-// import 'package:location_permissions/location_permissions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import './stations.dart';
 import 'dart:convert';
 import 'package:xml/xml.dart';
 import 'package:flutter/services.dart' show rootBundle;
-// import 'package:location_permissions/location_permissions.dart' as loc;
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
+import 'dart:math';
 
-main() => runApp(GetMaterialApp(home: MyApp()));
+ThemeMode _themeMode;
+
+final dataCount = GetStorage();
+
+void main() async {
+  await GetStorage.init();
+  dataCount.getKeys();
+  var themeMode = dataCount.read('themeMode');
+  if (themeMode == 0) {
+    _themeMode = ThemeMode.system;
+    _themeModes = 0;
+  } else if (themeMode == 1) {
+    _themeMode = ThemeMode.dark;
+    _themeModes = 1;
+  } else if (themeMode == 2) {
+    _themeMode = ThemeMode.light;
+    _themeModes = 2;
+  } else {
+    _themeMode = ThemeMode.system;
+    _themeModes = 0;
+  }
+  runApp(GetMaterialApp(
+      home: MainPage(),
+      themeMode: _themeMode,
+      theme: _lightThemeData,
+      darkTheme: _darkThemeData));
+}
 
 class MyApp extends StatefulWidget {
   const MyApp({Key key}) : super(key: key);
@@ -26,14 +49,19 @@ class MyApp extends StatefulWidget {
   MyAppState createState() => MyAppState();
 }
 
+int _themeModes;
+bool locTrigger = true;
+SharedPreferences sharedPrefs;
+
 ThemeData _darkThemeData = new ThemeData(
-    accentColor: Color(0x2AFFFFFF),
-    brightness: Brightness.dark,
-    accentColorBrightness: Brightness.dark,
-    bottomNavigationBarTheme:
-        BottomNavigationBarThemeData(backgroundColor: Colors.black),
-    floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: Colors.black38, foregroundColor: Colors.white));
+  accentColor: Color(0x2AFFFFFF),
+  brightness: Brightness.dark,
+  accentColorBrightness: Brightness.dark,
+  bottomNavigationBarTheme:
+      BottomNavigationBarThemeData(backgroundColor: Colors.black),
+  floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: Colors.black38, foregroundColor: Colors.white),
+);
 
 ThemeData _lightThemeData = new ThemeData(
     primarySwatch: Colors.indigo,
@@ -41,22 +69,13 @@ ThemeData _lightThemeData = new ThemeData(
     brightness: Brightness.light,
     accentColorBrightness: Brightness.light,
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: Colors.indigo, foregroundColor: Colors.white)
-);
-
-int _themeModes;
-// final Location location = Location();
-
-bool locTrigger = true;
-
-SharedPreferences sharedPrefs;
-String _error;
+        backgroundColor: Colors.indigo, foregroundColor: Colors.white));
 
 class MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext mainContext) {
     print("MyApp Building..");
-    _themeSettingsGetter();
+    // _themeSettingsGetter();
 
     return MaterialApp(
         key: keyApp,
@@ -64,37 +83,6 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
         themeMode: _themeMode,
         theme: _lightThemeData,
         darkTheme: _darkThemeData);
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    SharedPreferences.getInstance().then((prefs) {
-      setState(() => sharedPrefs = prefs);
-      var brightness = SchedulerBinding.instance.window.platformBrightness;
-
-      stations = [];
-      newStations = [];
-
-      if (prefs.getInt('themeModes') == 0) {
-        if (brightness == Brightness.dark) {
-          SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
-        }
-        if (brightness == Brightness.light) {
-          // SystemChrome.setSystemUIOverlayStyle(new SystemUiOverlayStyle(
-          //     systemNavigationBarColor: Color(0x10000000),
-          //     systemNavigationBarIconBrightness: Brightness.dark));
-        }
-      }
-      if (prefs.getInt('themeModes') == 1) {
-        SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
-      }
-      if (prefs.getInt('themeModes') == 2) {
-        // SystemChrome.setSystemUIOverlayStyle(new SystemUiOverlayStyle(
-        //     systemNavigationBarColor: Color(0x10000000),
-        //     systemNavigationBarIconBrightness: Brightness.dark));
-      }
-    });
   }
 }
 
@@ -107,8 +95,6 @@ final GlobalKey<ScaffoldState> keySettings = GlobalKey<ScaffoldState>();
 
 final SnackBar snackBarSuccess =
     const SnackBar(content: Text('데이터를 불러오는데 성공하였습니다.'));
-
-ThemeMode _themeMode;
 
 class MainPage extends StatefulWidget {
   const MainPage({Key key}) : super(key: key);
@@ -151,28 +137,6 @@ Future<bool> addStation(String stationName) async {
   print(parsed.toString());
   if (stationName == '') return false;
   stationNameInput = stationName;
-
-  // var rawData = await http.get(requestUrl);
-  // var body = utf8.decode(rawData.bodyBytes);
-  // var data = XmlDocument.parse(body);
-  // var statCode = data
-  //     .findAllElements('status')
-  //     .first
-  //     .text;
-  // print(statCode);
-  //
-  // if (statCode == '200') {
-  //   statusMsg = defText;
-  //   return true;
-  // }
-  // else if (statCode == '500') {
-  //   statusMsg = msgNoMatch;
-  //   return false;
-  // }
-  // else if (statCode != '200' && statCode != '500') {
-  //   statusMsg = msgFailConnection;
-  //   return false;
-  // }
   return true;
 }
 
@@ -241,33 +205,23 @@ List<Stations> parseStations(String responseBody) {
   return parsed.map<Stations>((json) => Stations.fromJson(json)).toList();
 }
 
+var lightNavBar = SystemUiOverlayStyle(
+    systemNavigationBarColor: Color(0x10000000),
+    systemNavigationBarIconBrightness: Brightness.dark);
+var darkNavBar = SystemUiOverlayStyle(
+    systemNavigationBarColor: Color(0xFF000000),
+    systemNavigationBarIconBrightness: Brightness.light);
+
 class MainPageState extends State<MainPage> {
   final textBoxController = TextEditingController();
-
-  // @override
-  // void dispose() {
-  //   super.dispose();
-  //   textBoxController.dispose();
-  //   _stopListen();
-  // }
-
   bool isFired = false;
   bool isLocAllowed = false;
-
   SharedPreferences sharedPrefs;
-  //
-  // Future<void> _stopListen() async {
-  //   _locationSubscription.cancel();
-  // }
-
   Future _getLocalStations;
-
-  // LocationData _location;
 
   @override
   void initState() {
     super.initState();
-    // getLocPermission().then((value) {
     SharedPreferences.getInstance().then((prefs) {
       setState(() => sharedPrefs = prefs);
       isFired = false;
@@ -275,33 +229,8 @@ class MainPageState extends State<MainPage> {
       stations = [];
       newStations = [];
     });
-    // });
   }
 
-  // Future<void> getLocation() async {
-  //   try {
-  //     await location.serviceEnabled();
-  //   } on Exception catch (_) {
-  //     return null;
-  //   }
-  //   var result = await location.requestPermission();
-  //   if (result == PermissionStatus.granted) {
-  //     print(result);
-  //     location.enableBackgroundMode();
-  //     _locationSubscription =
-  //         location.onLocationChanged.handleError((dynamic err) {
-  //       setState(() {
-  //         _error = err.code;
-  //       });
-  //     }).listen((LocationData currentLocation) {
-  //       setState(() {
-  //         _error = null;
-  //         _location = currentLocation;
-  //         print(_location.longitude.toString());
-  //       });
-  //     });
-  //   }
-  // }
   LocationPermission locationPermission = LocationPermission.denied;
   StreamSubscription<Position> _positionStreamSubscription;
   Position _position;
@@ -318,11 +247,16 @@ class MainPageState extends State<MainPage> {
       _positionStreamSubscription = _positionStream.handleError((onError) {
         _positionStreamSubscription.cancel();
         _positionStreamSubscription = null;
-      }).listen((position) {setState(() {
-        _position = position;
-        print('${_position.longitude}, ${_position.latitude}');
-      }); });
+      }).listen((position) {
+        setState(() {
+          _position = position;
+          print('${_position.longitude}, ${_position.latitude}');
+        });
+      });
     }
+    setState(() {
+      // newStations.sort();
+    });
   }
 
   void locationFailedDialog() async {
@@ -346,16 +280,6 @@ class MainPageState extends State<MainPage> {
       },
     );
   }
-
-  // Future<void> getLocPermission() async {
-  //   loc.PermissionStatus permission =
-  //       await loc.LocationPermissions().checkPermissionStatus();
-  //
-  //   if (permission != loc.PermissionStatus.granted)
-  //     await loc.LocationPermissions().requestPermissions();
-  // }
-
-  // StreamSubscription<LocationData> _locationSubscription;
 
   Future<List<Station>> getLocalStations() async {
     if (!isFired) {
@@ -432,61 +356,104 @@ class MainPageState extends State<MainPage> {
     return 2;
   }
 
+  double getDistance(double lat1, double lon1, double lat2, double lon2) {
+    const p = 0.017453292519943295;
+    var a = 0.5 -
+        cos((lat2 - lat1) * p) / 2 +
+        cos(lat1 * p) * cos(lat2 * p) * (1 - cos((lon2 - lon1) * p)) / 2;
+    return 12742 * asin(sqrt(a));
+  }
+
   @override
   Widget build(BuildContext context) {
+    var navBarColor = Color(0x10000000);
+    Brightness navBarIconBrightness = Brightness.dark;
+    var brightness = MediaQuery.platformBrightnessOf(context);
+    if (_themeModes == 0 && brightness == Brightness.dark) {
+      navBarColor = darkNavBar.systemNavigationBarColor;
+      navBarIconBrightness = Brightness.light;
+    } else if (_themeModes == 0 && brightness == Brightness.light) {
+      navBarColor = lightNavBar.systemNavigationBarColor;
+      navBarIconBrightness = Brightness.dark;
+    } else if (_themeModes == 1) {
+      navBarColor = darkNavBar.systemNavigationBarColor;
+      navBarIconBrightness = Brightness.light;
+    } else if (_themeModes == 2) {
+      navBarColor = lightNavBar.systemNavigationBarColor;
+      navBarIconBrightness = Brightness.dark;
+    }
+
     print('mainPage Building..');
-    return Scaffold(
-        key: keyMain,
-        appBar: AppBar(
-          title: Text('Quick Subway'),
-          actions: <Widget>[
-            IconButton(
-                icon: Icon(Icons.settings),
-                onPressed: () {
-                  Navigator.push(context,
-                      MaterialPageRoute(builder: (context) => SettingsPage()));
-                }),
-          ],
-        ),
-        body: Container(
-            child: FutureBuilder(
-                future: _getLocalStations.whenComplete(() => getLocation()),
-                builder: (BuildContext context, AsyncSnapshot snapshot) {
-                  if (snapshot.data == null) {
-                    return Container(
-                        child: Center(
-                            child: CircularProgressIndicator(
-                      backgroundColor: Colors.black12,
-                    )));
-                  } else {
-                    return ListView.builder(
-                        itemCount: snapshot.data.length,
-                        itemBuilder: (BuildContext buildContext, int index) {
-                          var item = newStations[index];
-                          return Dismissible(
-                              key: Key(item.name.toString()),
-                              onDismissed: (direction) {
-                                setState(() {
-                                  newStations.removeAt(index);
-                                  removeStation();
-                                });
-                              },
-                              background: Container(color: Colors.red),
-                              child: ListTile(
-                                title: Text(snapshot.data[index].name),
-                                trailing: Text(snapshot.data[index].line),
-                                subtitle: Text('${_position.latitude}, ${_position.longitude}'),
-                              ));
-                        });
-                  }
-                })),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            _showMyDialog();
-            keyMain.currentState.build(context);
-          },
-          child: Icon(Icons.add),
-        ));
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle(
+            systemNavigationBarColor: navBarColor,
+            systemNavigationBarIconBrightness: navBarIconBrightness),
+        child: Scaffold(
+            key: keyMain,
+            appBar: AppBar(
+              title: Text('Quick Subway'),
+              actions: <Widget>[
+                IconButton(
+                    icon: Icon(Icons.settings),
+                    onPressed: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => SettingsPage()));
+                    }),
+              ],
+            ),
+            body: Container(
+                child: FutureBuilder(
+                    future: _getLocalStations.whenComplete(() => getLocation()),
+                    builder: (BuildContext context, AsyncSnapshot snapshot) {
+                      if (snapshot.data == null) {
+                        return Container(
+                            child: Center(
+                                child: CircularProgressIndicator(
+                          backgroundColor: Colors.black12,
+                        )));
+                      } else {
+                        return ListView.builder(
+
+                            itemCount: snapshot.data.length,
+                            itemBuilder:
+                                (BuildContext buildContext, int index) {
+                              var item = newStations[index];
+                              return Dismissible(
+                                  key: Key(item.name.toString()),
+                                  onDismissed: (direction) {
+                                    setState(() {
+                                      newStations.removeAt(index);
+                                      removeStation();
+                                    });
+                                  },
+                                  //TODO: Sort lists by distance and add the topmost to the card
+                                  background: Container(color: Colors.red),
+                                  child:
+                                    ListTile(
+                                        title: Text(snapshot.data[index].name),
+                                        trailing:
+                                            Text(snapshot.data[index].line),
+                                        subtitle: Text(
+                                          getDistance(
+                                                  _position.latitude,
+                                                  _position.longitude,
+                                                  snapshot.data[index].lat,
+                                                  snapshot.data[index].lng)
+                                              .toString(),
+                                        ))
+                                  );
+                            });
+                      }
+                    })),
+            floatingActionButton: FloatingActionButton(
+              onPressed: () {
+                _showMyDialog();
+
+              },
+              child: Icon(Icons.add),
+            )));
   }
 
   _showMyDialog() {
@@ -560,12 +527,6 @@ _themeSettingsGetter() async {
   if (_themeModes == 2) _themeMode = ThemeMode.light;
 }
 
-_themeSettingsSetter(int value) async {
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  print('setting prefs $value');
-  await prefs.setInt('themeModes', value);
-}
-
 class SettingsPage extends StatefulWidget {
   const SettingsPage({Key key}) : super(key: key);
 
@@ -577,75 +538,88 @@ int dropDownValue;
 
 class SettingsState extends State<SettingsPage> {
   @override
-  Widget build(BuildContext settingsContext) {
-    print("SettingsPage Building..");
-
-    return Scaffold(
-        key: keySettings,
-        appBar: AppBar(
-          title: Text('설정'),
-          key: UniqueKey(),
-        ),
-        body: Material(
-            child: Card(
-          child: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[
-            ListTile(
-              title: Text('테마 모드'),
-              trailing: DropdownButton(
-                value: _themeModes,
-                items: [
-                  DropdownMenuItem(
-                    child: Text('시스템 모드'),
-                    value: 0,
-                  ),
-                  DropdownMenuItem(
-                    child: Text('다크 모드'),
-                    value: 1,
-                  ),
-                  DropdownMenuItem(
-                    child: Text('라이트 모드'),
-                    value: 2,
-                  )
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    _themeModes = value;
-                    _themeSettingsSetter(value);
-                    var brightness = MediaQuery.of(context).platformBrightness;
-                    if (value == 0) {
-                      if (brightness == Brightness.dark) {
-                        SystemChrome.setSystemUIOverlayStyle(
-                            SystemUiOverlayStyle.dark);
-                      }
-                      if (brightness == Brightness.light) {
-                        SystemChrome.setSystemUIOverlayStyle(
-                            new SystemUiOverlayStyle(
-                                systemNavigationBarColor: Color(0x10000000),
-                                systemNavigationBarIconBrightness:
-                                    Brightness.dark));
-                      }
-                    }
-                    if (value == 1) {
-                      Get.changeTheme(ThemeData.dark());
-                      SystemChrome.setSystemUIOverlayStyle(
-                          SystemUiOverlayStyle.dark);
-                    }
-                    if (value == 2) {
-                      Get.changeTheme(ThemeData.light());
-                      SystemChrome.setSystemUIOverlayStyle(
-                          new SystemUiOverlayStyle(
-                              systemNavigationBarColor: Color(0x10000000),
-                              systemNavigationBarIconBrightness:
-                                  Brightness.dark)
-
-                      );
-                    }
-
-                  });
-                },
-              ),
+  Widget build(context) {
+    var navBarColor = Color(0x10000000);
+    Brightness navBarIconBrightness = Brightness.dark;
+    var brightness = MediaQuery.platformBrightnessOf(context);
+    if (_themeModes == 0 && brightness == Brightness.dark) {
+      navBarColor = darkNavBar.systemNavigationBarColor;
+      navBarIconBrightness = Brightness.light;
+    } else if (_themeModes == 0 && brightness == Brightness.light) {
+      navBarColor = lightNavBar.systemNavigationBarColor;
+      navBarIconBrightness = Brightness.dark;
+    } else if (_themeModes == 1) {
+      navBarColor = darkNavBar.systemNavigationBarColor;
+      navBarIconBrightness = Brightness.light;
+    } else if (_themeModes == 2) {
+      navBarColor = lightNavBar.systemNavigationBarColor;
+      navBarIconBrightness = Brightness.dark;
+    }
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle(
+            systemNavigationBarColor: navBarColor,
+            systemNavigationBarIconBrightness: navBarIconBrightness),
+        child: Scaffold(
+            key: keySettings,
+            appBar: AppBar(
+              title: Text('설정'),
+              key: UniqueKey(),
             ),
-          ]),
-        )));
+            body: Material(
+                child: Card(
+              child: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[
+                ListTile(
+                  title: Text('테마 모드'),
+                  trailing: DropdownButton(
+                    value: _themeModes,
+                    items: [
+                      DropdownMenuItem(
+                        child: Text('시스템 모드'),
+                        value: 0,
+                      ),
+                      DropdownMenuItem(
+                        child: Text('다크 모드'),
+                        value: 1,
+                      ),
+                      DropdownMenuItem(
+                        child: Text('라이트 모드'),
+                        value: 2,
+                      )
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        var brightness =
+                            MediaQuery.of(context).platformBrightness;
+                        if (value == 0) {
+                          if (brightness == Brightness.dark) {
+                            Get.changeThemeMode(ThemeMode.dark);
+                            dataCount.write('themeMode', 0);
+                            _themeModes = 0;
+                            SystemChrome.setSystemUIOverlayStyle(darkNavBar);
+                          } else if (brightness == Brightness.light) {
+                            Get.changeThemeMode(ThemeMode.light);
+                            dataCount.write('themeMode', 0);
+                            _themeModes = 0;
+                            SystemChrome.setSystemUIOverlayStyle(lightNavBar);
+                          }
+                        }
+                        if (value == 1) {
+                          Get.changeThemeMode(ThemeMode.dark);
+                          dataCount.write('themeMode', 1);
+                          _themeModes = 1;
+                          SystemChrome.setSystemUIOverlayStyle(darkNavBar);
+                        }
+                        if (value == 2) {
+                          Get.changeThemeMode(ThemeMode.light);
+                          dataCount.write('themeMode', 2);
+                          _themeModes = 2;
+                          SystemChrome.setSystemUIOverlayStyle(lightNavBar);
+                        }
+                      });
+                    },
+                  ),
+                ),
+              ]),
+            ))));
   }
 }
