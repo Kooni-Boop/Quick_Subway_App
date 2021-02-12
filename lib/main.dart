@@ -196,8 +196,9 @@ class Station {
   final int code;
   final double lat;
   final double lng;
+  final double dist;
 
-  Station(this.line, this.name, this.code, this.lat, this.lng);
+  Station(this.line, this.name, this.code, this.lat, this.lng, this.dist);
 }
 
 List<Stations> parseStations(String responseBody) {
@@ -290,7 +291,7 @@ class MainPageState extends State<MainPage> {
         var jsonData = json.decode(data);
         for (var i in jsonData) {
           Station station =
-              Station(i['line'], i['name'], i['code'], i['lat'], i['lng']);
+              Station(i['line'], i['name'], i['code'], i['lat'], i['lng'], i['']);
           stations.add(station);
         }
       }
@@ -318,6 +319,7 @@ class MainPageState extends State<MainPage> {
     }
     if (newStations == null) newStations = [];
     print('returning');
+    // newStations.sort();
     return newStations;
   }
 
@@ -356,12 +358,16 @@ class MainPageState extends State<MainPage> {
     return 2;
   }
 
-  double getDistance(double lat1, double lon1, double lat2, double lon2) {
+  String getDistance(double lat1, double lon1, double lat2, double lon2) {
     const p = 0.017453292519943295;
     var a = 0.5 -
         cos((lat2 - lat1) * p) / 2 +
         cos(lat1 * p) * cos(lat2 * p) * (1 - cos((lon2 - lon1) * p)) / 2;
-    return 12742 * asin(sqrt(a));
+    var b = 12742 * asin(sqrt(a));
+    var c = "";
+    if(b >= 1)c = b.toStringAsFixed(1) + 'km';
+    else if(b < 1) c = b.toStringAsFixed(3).replaceRange(0, 2, "") + 'm';
+    return c;
   }
 
   @override
@@ -382,7 +388,7 @@ class MainPageState extends State<MainPage> {
       navBarColor = lightNavBar.systemNavigationBarColor;
       navBarIconBrightness = Brightness.dark;
     }
-
+    var dat;
     print('mainPage Building..');
     return AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle(
@@ -415,7 +421,6 @@ class MainPageState extends State<MainPage> {
                         )));
                       } else {
                         return ListView.builder(
-
                             itemCount: snapshot.data.length,
                             itemBuilder:
                                 (BuildContext buildContext, int index) {
@@ -428,29 +433,24 @@ class MainPageState extends State<MainPage> {
                                       removeStation();
                                     });
                                   },
-                                  //TODO: Sort lists by distance and add the topmost to the card
                                   background: Container(color: Colors.red),
-                                  child:
-                                    ListTile(
-                                        title: Text(snapshot.data[index].name),
-                                        trailing:
-                                            Text(snapshot.data[index].line),
-                                        subtitle: Text(
-                                          getDistance(
-                                                  _position.latitude,
-                                                  _position.longitude,
-                                                  snapshot.data[index].lat,
-                                                  snapshot.data[index].lng)
-                                              .toString(),
-                                        ))
-                                  );
+                                  child: ListTile(
+                                      title: Text(snapshot.data[index].name),
+                                      trailing: Text(snapshot.data[index].line),
+                                      subtitle: Text(
+                                        dat = getDistance(
+                                                _position.latitude,
+                                                _position.longitude,
+                                                snapshot.data[index].lat,
+                                                snapshot.data[index].lng)
+                                            .obs(),
+                                      )));
                             });
                       }
                     })),
             floatingActionButton: FloatingActionButton(
               onPressed: () {
                 _showMyDialog();
-
               },
               child: Icon(Icons.add),
             )));
