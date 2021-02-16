@@ -191,7 +191,7 @@ class Stations {
 }
 
 class Station {
-  final String line;
+  String line;
   final String name;
   final int code;
   final double lat;
@@ -251,7 +251,7 @@ class MainPageState extends State<MainPage> {
       }).listen((position) {
         setState(() {
           _position = position;
-          print('${_position.longitude}, ${_position.latitude}');
+          // print('${_position.longitude}, ${_position.latitude}');
         });
       });
     }
@@ -290,8 +290,8 @@ class MainPageState extends State<MainPage> {
         var data = await rootBundle.loadString('res/stations_data.json');
         var jsonData = json.decode(data);
         for (var i in jsonData) {
-          Station station =
-              Station(i['line'], i['name'], i['code'], i['lat'], i['lng'], i['']);
+          Station station = Station(
+              i['line'], i['name'], i['code'], i['lat'], i['lng'], i['']);
           stations.add(station);
         }
       }
@@ -308,11 +308,15 @@ class MainPageState extends State<MainPage> {
       }
       print('localstationnamelists are' +
           localStationsNameList.length.toString());
+
       for (var i in localStationsNameList) {
+        var flag = false;
         for (var j in stations) {
           if (j.name == i) {
-            newStations.add(j);
-            break;
+            if (flag == false) {
+              newStations.add(j);
+              flag = true;
+            } else if (flag) newStations.last.line += ' ${j.line}';
           }
         }
       }
@@ -328,7 +332,7 @@ class MainPageState extends State<MainPage> {
     return compute(parseStations, response);
   }
 
-  Future<void> removeStation() async {
+  Future<void> removeStation() async {//TODO: REFACTOR THIS
     SharedPreferences prefs = await SharedPreferences.getInstance();
     print('removing station');
     List<String> stations = [];
@@ -344,19 +348,23 @@ class MainPageState extends State<MainPage> {
     List<String> stationNames = [];
     stationNames = prefs.getStringList('stationName');
     if (stationNames == null) stationNames = [];
-    for (var i in stationNames) if (i == stationName) return 1;
-
-    for (var i in stations) {
-      if (i.name == stationName) {
-        newStations.add(i);
-        stationNames.add(stationName);
-        await prefs.setStringList('stationName', stationNames);
-        print('setting names succeeded');
-        return 0;
+      for (var i in stationNames) if (i == stationName) return 1;
+      var flag = false;
+      var initialCount = newStations.length;
+      for (var i in stations) {
+        if (i.name == stationName) {
+          if(!flag) {
+            newStations.add(i);
+            stationNames.add(stationName);
+            await prefs.setStringList('stationName', stationNames);
+            flag = true;
+          }
+          else if(flag)newStations.last.line += ' ${i.line}';
+        }
       }
+      if(newStations.length == initialCount) return 2;
+      return 0;
     }
-    return 2;
-  }
 
   String getDistance(double lat1, double lon1, double lat2, double lon2) {
     const p = 0.017453292519943295;
@@ -365,8 +373,10 @@ class MainPageState extends State<MainPage> {
         cos(lat1 * p) * cos(lat2 * p) * (1 - cos((lon2 - lon1) * p)) / 2;
     var b = 12742 * asin(sqrt(a));
     var c = "";
-    if(b >= 1)c = b.toStringAsFixed(1) + 'km';
-    else if(b < 1) c = b.toStringAsFixed(3).replaceRange(0, 2, "") + 'm';
+    if (b >= 1)
+      c = b.toStringAsFixed(1) + 'km';
+    else if (b < 1) c = b.toStringAsFixed(3).replaceRange(0, 2, "") + 'm';
+    //TODO: Cover when dist is less than 100 and 10meters
     return c;
   }
 
@@ -388,8 +398,6 @@ class MainPageState extends State<MainPage> {
       navBarColor = lightNavBar.systemNavigationBarColor;
       navBarIconBrightness = Brightness.dark;
     }
-    var dat;
-    print('mainPage Building..');
     return AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle(
             systemNavigationBarColor: navBarColor,
@@ -434,17 +442,20 @@ class MainPageState extends State<MainPage> {
                                     });
                                   },
                                   background: Container(color: Colors.red),
-                                  child: ListTile(
-                                      title: Text(snapshot.data[index].name),
-                                      trailing: Text(snapshot.data[index].line),
-                                      subtitle: Text(
-                                        dat = getDistance(
-                                                _position.latitude,
-                                                _position.longitude,
-                                                snapshot.data[index].lat,
-                                                snapshot.data[index].lng)
-                                            .obs(),
-                                      )));
+                                  child: Card(
+                                      child: ListTile(
+                                          title:
+                                              Text(snapshot.data[index].name),
+                                          trailing:
+                                              Text(snapshot.data[index].line),
+                                          subtitle: Text(
+                                            getDistance(
+                                                    _position.latitude,
+                                                    _position.longitude,
+                                                    snapshot.data[index].lat,
+                                                    snapshot.data[index].lng)
+                                                .obs(),
+                                          ))));
                             });
                       }
                     })),
@@ -495,9 +506,7 @@ class MainPageState extends State<MainPage> {
                           statusMsg = msgDuplicate;
                         } else if (result == 2) {
                           statusMsg = msgNoMatch;
-                        } else if (result == 0 &&
-                            textBoxController.text != '') {
-                          print('adding station successful');
+                        } else if (result == 0) {
                           Navigator.of(context).pop();
                           textBoxController.clear();
                           keyMain.currentState.build(context);
@@ -517,11 +526,9 @@ _themeSettingsGetter() async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
   _themeModes = prefs.getInt('themeModes');
   if (_themeModes == null) {
-    print('thememode is null');
     _themeMode = ThemeMode.system;
     await prefs.setInt('themeModes', 0);
   }
-  print('thememode is $_themeModes');
   if (_themeModes == 0) _themeMode = ThemeMode.system;
   if (_themeModes == 1) _themeMode = ThemeMode.dark;
   if (_themeModes == 2) _themeMode = ThemeMode.light;
