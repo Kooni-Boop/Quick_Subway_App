@@ -169,6 +169,7 @@ Future<bool> addStations(String stationName) async {
 class Stations {
   final String lineNum;
   final String stationName;
+  final double distance;
   final int stationNum;
   final double latitude;
   final double longitude;
@@ -176,6 +177,7 @@ class Stations {
   Stations(
       {this.lineNum,
       this.stationName,
+      this.distance,
       this.stationNum,
       this.latitude,
       this.longitude});
@@ -196,7 +198,7 @@ class Station {
   final int code;
   final double lat;
   final double lng;
-  final double dist;
+  double dist;
 
   Station(this.line, this.name, this.code, this.lat, this.lng, this.dist);
 }
@@ -235,6 +237,16 @@ class MainPageState extends State<MainPage> {
   LocationPermission locationPermission = LocationPermission.denied;
   StreamSubscription<Position> _positionStreamSubscription;
   Position _position;
+  var flag = false;
+
+  double getDistance2(double lat1, double lon1, double lat2, double lon2) {
+    const p = 0.017453292519943295;
+    var a = 0.5 -
+        cos((lat2 - lat1) * p) / 2 +
+        cos(lat1 * p) * cos(lat2 * p) * (1 - cos((lon2 - lon1) * p)) / 2;
+    var b = 12742 * asin(sqrt(a));
+    return b;
+  }
 
   Future<void> getLocation() async {
     locationPermission = await Geolocator.checkPermission();
@@ -255,8 +267,13 @@ class MainPageState extends State<MainPage> {
         });
       });
     }
+
+    for(var i = 0; i > newStations.length; i++) {
+    newStations[i].dist = getDistance2(_position?.latitude, _position?.longitude, newStations[i].lat, newStations[i].lng);
+    }
+    newStations.sort()
     setState(() {
-      // newStations.sort();
+
     });
   }
 
@@ -332,7 +349,7 @@ class MainPageState extends State<MainPage> {
     return compute(parseStations, response);
   }
 
-  Future<void> removeStation() async {//TODO: REFACTOR THIS
+  Future<void> removeStation() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     print('removing station');
     List<String> stations = [];
@@ -375,8 +392,8 @@ class MainPageState extends State<MainPage> {
     var c = "";
     if (b >= 1)
       c = b.toStringAsFixed(1) + 'km';
+    else if (b < 0.1) c = '근접';
     else if (b < 1) c = b.toStringAsFixed(3).replaceRange(0, 2, "") + 'm';
-    //TODO: Cover when dist is less than 100 and 10meters
     return c;
   }
 
@@ -433,6 +450,7 @@ class MainPageState extends State<MainPage> {
                             itemBuilder:
                                 (BuildContext buildContext, int index) {
                               var item = newStations[index];
+
                               return Dismissible(
                                   key: Key(item.name.toString()),
                                   onDismissed: (direction) {
@@ -445,16 +463,16 @@ class MainPageState extends State<MainPage> {
                                   child: Card(
                                       child: ListTile(
                                           title:
-                                              Text(snapshot.data[index].name),
-                                          trailing:
+                                              Text(snapshot.data[index].name, style: TextStyle(fontSize: 18),),
+                                          subtitle:
                                               Text(snapshot.data[index].line),
-                                          subtitle: Text(
+                                          trailing: Text(
                                             getDistance(
-                                                    _position.latitude,
-                                                    _position.longitude,
+                                                    _position?.latitude,
+                                                    _position?.longitude,
                                                     snapshot.data[index].lat,
                                                     snapshot.data[index].lng)
-                                                .obs(),
+                                                .obs(),style:TextStyle(fontSize: 18),
                                           ))));
                             });
                       }
