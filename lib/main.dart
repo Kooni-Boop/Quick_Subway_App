@@ -268,12 +268,8 @@ class MainPageState extends State<MainPage> {
       });
     }
 
-    for(var i = 0; i > newStations.length; i++) {
-    newStations[i].dist = getDistance2(_position?.latitude, _position?.longitude, newStations[i].lat, newStations[i].lng);
-    }
-    newStations.sort()
-    setState(() {
 
+    setState(() {
     });
   }
 
@@ -451,6 +447,15 @@ class MainPageState extends State<MainPage> {
                                 (BuildContext buildContext, int index) {
                               var item = newStations[index];
 
+                              newStations.forEach((element) {
+                                element.dist = getDistance2(_position?.latitude, _position?.longitude, element.lat, element.lng);
+                              });
+                              // if (_position.latitude != null) {
+                              //   for(var i = 0; i > newStations.length; i++) {
+                              //     newStations[i].dist = getDistance2(_position?.latitude, _position?.longitude, newStations[i].lat, newStations[i].lng);
+                              //   }
+                                if(newStations.length > 0)newStations.sort((a, b) => a.dist.compareTo(b.dist));
+                              // }
                               return Dismissible(
                                   key: Key(item.name.toString()),
                                   onDismissed: (direction) {
