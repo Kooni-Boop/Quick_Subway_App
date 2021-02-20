@@ -88,6 +88,7 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
 List<Station> stations = [];
 List<Station> newStations = [];
+List<Station> mainCardStations = [];
 
 final GlobalKey<ScaffoldState> keyApp = GlobalKey<ScaffoldState>();
 final GlobalKey<ScaffoldState> keyMain = GlobalKey<ScaffoldState>();
@@ -169,7 +170,6 @@ Future<bool> addStations(String stationName) async {
 class Stations {
   final String lineNum;
   final String stationName;
-  final double distance;
   final int stationNum;
   final double latitude;
   final double longitude;
@@ -177,7 +177,6 @@ class Stations {
   Stations(
       {this.lineNum,
       this.stationName,
-      this.distance,
       this.stationNum,
       this.latitude,
       this.longitude});
@@ -193,12 +192,12 @@ class Stations {
 }
 
 class Station {
-  String line;
+  final String line;
   final String name;
   final int code;
   final double lat;
   final double lng;
-  double dist;
+  final double dist;
 
   Station(this.line, this.name, this.code, this.lat, this.lng, this.dist);
 }
@@ -221,6 +220,7 @@ class MainPageState extends State<MainPage> {
   bool isLocAllowed = false;
   SharedPreferences sharedPrefs;
   Future _getLocalStations;
+  Future _getMainCards;
 
   @override
   void initState() {
@@ -229,23 +229,29 @@ class MainPageState extends State<MainPage> {
       setState(() => sharedPrefs = prefs);
       isFired = false;
       _getLocalStations = getLocalStations();
+      _getMainCards = getMainCards();
       stations = [];
       newStations = [];
+      mainCardStations = [];
     });
   }
 
   LocationPermission locationPermission = LocationPermission.denied;
   StreamSubscription<Position> _positionStreamSubscription;
   Position _position;
-  var flag = false;
 
-  double getDistance2(double lat1, double lon1, double lat2, double lon2) {
-    const p = 0.017453292519943295;
-    var a = 0.5 -
-        cos((lat2 - lat1) * p) / 2 +
-        cos(lat1 * p) * cos(lat2 * p) * (1 - cos((lon2 - lon1) * p)) / 2;
-    var b = 12742 * asin(sqrt(a));
-    return b;
+
+  Future<List<Station>> getMainCards() async {
+    if(_position != null && newStations != null) {
+      var firstStationName = newStations[0].name;
+      if(firstStationName != null) {
+        for(var station in stations){
+          if(station.name == firstStationName){
+            //TODO: Your Codes Here
+          }
+        }
+      }
+    }
   }
 
   Future<void> getLocation() async {
@@ -263,13 +269,12 @@ class MainPageState extends State<MainPage> {
       }).listen((position) {
         setState(() {
           _position = position;
-          // print('${_position.longitude}, ${_position.latitude}');
+          print('${_position.longitude}, ${_position.latitude}');
         });
       });
     }
-
-
     setState(() {
+      // newStations.sort();
     });
   }
 
@@ -321,15 +326,11 @@ class MainPageState extends State<MainPage> {
       }
       print('localstationnamelists are' +
           localStationsNameList.length.toString());
-
       for (var i in localStationsNameList) {
-        var flag = false;
         for (var j in stations) {
           if (j.name == i) {
-            if (flag == false) {
-              newStations.add(j);
-              flag = true;
-            } else if (flag) newStations.last.line += ' ${j.line}';
+            newStations.add(j);
+            break;
           }
         }
       }
@@ -361,23 +362,19 @@ class MainPageState extends State<MainPage> {
     List<String> stationNames = [];
     stationNames = prefs.getStringList('stationName');
     if (stationNames == null) stationNames = [];
-      for (var i in stationNames) if (i == stationName) return 1;
-      var flag = false;
-      var initialCount = newStations.length;
-      for (var i in stations) {
-        if (i.name == stationName) {
-          if(!flag) {
-            newStations.add(i);
-            stationNames.add(stationName);
-            await prefs.setStringList('stationName', stationNames);
-            flag = true;
-          }
-          else if(flag)newStations.last.line += ' ${i.line}';
-        }
+    for (var i in stationNames) if (i == stationName) return 1;
+
+    for (var i in stations) {
+      if (i.name == stationName) {
+        newStations.add(i);
+        stationNames.add(stationName);
+        await prefs.setStringList('stationName', stationNames);
+        print('setting names succeeded');
+        return 0;
       }
-      if(newStations.length == initialCount) return 2;
-      return 0;
     }
+    return 2;
+  }
 
   String getDistance(double lat1, double lon1, double lat2, double lon2) {
     const p = 0.017453292519943295;
@@ -388,7 +385,6 @@ class MainPageState extends State<MainPage> {
     var c = "";
     if (b >= 1)
       c = b.toStringAsFixed(1) + 'km';
-    else if (b < 0.1) c = '근접';
     else if (b < 1) c = b.toStringAsFixed(3).replaceRange(0, 2, "") + 'm';
     return c;
   }
@@ -411,26 +407,33 @@ class MainPageState extends State<MainPage> {
       navBarColor = lightNavBar.systemNavigationBarColor;
       navBarIconBrightness = Brightness.dark;
     }
+    print('mainPage Building..');
     return AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle(
-            systemNavigationBarColor: navBarColor,
-            systemNavigationBarIconBrightness: navBarIconBrightness),
-        child: Scaffold(
-            key: keyMain,
-            appBar: AppBar(
-              title: Text('Quick Subway'),
-              actions: <Widget>[
-                IconButton(
-                    icon: Icon(Icons.settings),
-                    onPressed: () {
-                      Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => SettingsPage()));
-                    }),
-              ],
-            ),
-            body: Container(
+      value: SystemUiOverlayStyle(
+          systemNavigationBarColor: navBarColor,
+          systemNavigationBarIconBrightness: navBarIconBrightness),
+      child: Scaffold(
+          key: keyMain,
+          appBar: AppBar(
+            title: Text('Quick Subway'),
+            actions: <Widget>[
+              IconButton(
+                  icon: Icon(Icons.settings),
+                  onPressed: () {
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => SettingsPage()));
+                  }),
+            ],
+          ),
+          body: ListView(children: [
+            Container(child: FutureBuilder(
+                future: 
+                builder: (BuildContext context, AsyncSnapshot snapshot) {
+              return Text();
+            })),
+            Container(
                 child: FutureBuilder(
                     future: _getLocalStations.whenComplete(() => getLocation()),
                     builder: (BuildContext context, AsyncSnapshot snapshot) {
@@ -446,16 +449,6 @@ class MainPageState extends State<MainPage> {
                             itemBuilder:
                                 (BuildContext buildContext, int index) {
                               var item = newStations[index];
-
-                              newStations.forEach((element) {
-                                element.dist = getDistance2(_position?.latitude, _position?.longitude, element.lat, element.lng);
-                              });
-                              // if (_position.latitude != null) {
-                              //   for(var i = 0; i > newStations.length; i++) {
-                              //     newStations[i].dist = getDistance2(_position?.latitude, _position?.longitude, newStations[i].lat, newStations[i].lng);
-                              //   }
-                                if(newStations.length > 0)newStations.sort((a, b) => a.dist.compareTo(b.dist));
-                              // }
                               return Dismissible(
                                   key: Key(item.name.toString()),
                                   onDismissed: (direction) {
@@ -465,29 +458,28 @@ class MainPageState extends State<MainPage> {
                                     });
                                   },
                                   background: Container(color: Colors.red),
-                                  child: Card(
-                                      child: ListTile(
-                                          title:
-                                              Text(snapshot.data[index].name, style: TextStyle(fontSize: 18),),
-                                          subtitle:
-                                              Text(snapshot.data[index].line),
-                                          trailing: Text(
-                                            getDistance(
-                                                    _position?.latitude,
-                                                    _position?.longitude,
-                                                    snapshot.data[index].lat,
-                                                    snapshot.data[index].lng)
-                                                .obs(),style:TextStyle(fontSize: 18),
-                                          ))));
+                                  child: ListTile(
+                                      title: Text(snapshot.data[index].name),
+                                      trailing: Text(snapshot.data[index].line),
+                                      subtitle: Text(
+                                        getDistance(
+                                                _position.latitude,
+                                                _position.longitude,
+                                                snapshot.data[index].lat,
+                                                snapshot.data[index].lng)
+                                            .obs(),
+                                      )));
                             });
                       }
                     })),
-            floatingActionButton: FloatingActionButton(
-              onPressed: () {
-                _showMyDialog();
-              },
-              child: Icon(Icons.add),
-            )));
+          ]),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () {
+              _showMyDialog();
+            },
+            child: Icon(Icons.add),
+          )),
+    );
   }
 
   _showMyDialog() {
@@ -529,7 +521,9 @@ class MainPageState extends State<MainPage> {
                           statusMsg = msgDuplicate;
                         } else if (result == 2) {
                           statusMsg = msgNoMatch;
-                        } else if (result == 0) {
+                        } else if (result == 0 &&
+                            textBoxController.text != '') {
+                          print('adding station successful');
                           Navigator.of(context).pop();
                           textBoxController.clear();
                           keyMain.currentState.build(context);
@@ -549,9 +543,11 @@ _themeSettingsGetter() async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
   _themeModes = prefs.getInt('themeModes');
   if (_themeModes == null) {
+    print('thememode is null');
     _themeMode = ThemeMode.system;
     await prefs.setInt('themeModes', 0);
   }
+  print('thememode is $_themeModes');
   if (_themeModes == 0) _themeMode = ThemeMode.system;
   if (_themeModes == 1) _themeMode = ThemeMode.dark;
   if (_themeModes == 2) _themeMode = ThemeMode.light;
