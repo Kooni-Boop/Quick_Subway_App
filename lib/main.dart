@@ -197,7 +197,7 @@ class Station {
   final int code;
   final double lat;
   final double lng;
-  final double dist;
+  double dist;
 
   Station(this.line, this.name, this.code, this.lat, this.lng, this.dist);
 }
@@ -239,19 +239,23 @@ class MainPageState extends State<MainPage> {
   LocationPermission locationPermission = LocationPermission.denied;
   StreamSubscription<Position> _positionStreamSubscription;
   Position _position;
-
+  var firstStationName = '';
 
   Future<List<Station>> getMainCards() async {
-    if(_position != null && newStations != null) {
-      var firstStationName = newStations[0].name;
-      if(firstStationName != null) {
+    if(_position != null && newStations[0] != null) {
+      if(firstStationName != newStations[0].name) {
+        firstStationName = newStations[0].name;
+        mainCardStations = [];
         for(var station in stations){
-          if(station.name == firstStationName){
-            //TODO: Your Codes Here
-          }
+          if(station.name == firstStationName) {
+            mainCardStations.add(station);
+            mainCardStations.last.dist = newStations[0].dist;
         }
       }
+      return mainCardStations;
+      }
     }
+    return null;
   }
 
   Future<void> getLocation() async {
