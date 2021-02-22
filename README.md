@@ -2,15 +2,6 @@
 
 Fast Subway Android App
 
-## Getting Started
+## 앱 설명
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://flutter.dev/docs/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://flutter.dev/docs/cookbook)
-
-For help getting started with Flutter, view our
-[online documentation](https://flutter.dev/docs), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+위도와 경도, 호선, 역이름 등이 포함된 json파일을 파싱하여 로드하고, 사용자가 지정한 역이 있으면 서울 열린데이터광장 실시간 지하철 도착정보 api 데이터를 읽어와 보여주고, 남은 거리를 표시해주는 앱입니다.
