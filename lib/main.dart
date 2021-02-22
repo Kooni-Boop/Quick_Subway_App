@@ -242,17 +242,17 @@ class MainPageState extends State<MainPage> {
   var firstStationName = '';
 
   Future<List<Station>> getMainCards() async {
-    if(_position != null && newStations[0] != null) {
-      if(firstStationName != newStations[0].name) {
+    if (_position != null && newStations[0] != null) {
+      if (firstStationName != newStations[0].name) {
         firstStationName = newStations[0].name;
         mainCardStations = [];
-        for(var station in stations){
-          if(station.name == firstStationName) {
+        for (var station in stations) {
+          if (station.name == firstStationName) {
             mainCardStations.add(station);
             mainCardStations.last.dist = newStations[0].dist;
+          }
         }
-      }
-      return mainCardStations;
+        return mainCardStations;
       }
     }
     return null;
@@ -432,11 +432,22 @@ class MainPageState extends State<MainPage> {
             ],
           ),
           body: ListView(children: [
-            Container(child: FutureBuilder(
-                future: 
-                builder: (BuildContext context, AsyncSnapshot snapshot) {
-              return Text();
-            })),
+            Container(
+                child: FutureBuilder(
+                    future: _getMainCards,
+                    builder: (BuildContext context, AsyncSnapshot snapshot) {
+                      if (snapshot.data == null) {
+                        return Column();
+                      } else {
+                        return ListView.builder(
+                            itemCount: snapshot.data.length,
+                            itemBuilder:
+                                (BuildContext buildContext, int index) {
+                              return Card(
+                                  child: Text(snapshot.data[index].dist));
+                            });
+                      }
+                    })),
             Container(
                 child: FutureBuilder(
                     future: _getLocalStations.whenComplete(() => getLocation()),
