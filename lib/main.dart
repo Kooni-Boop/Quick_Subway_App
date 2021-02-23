@@ -221,6 +221,7 @@ class MainPageState extends State<MainPage> {
   SharedPreferences sharedPrefs;
   Future _getLocalStations;
   Future _getMainCards;
+  Future _getLocations;
 
   @override
   void initState() {
@@ -228,11 +229,9 @@ class MainPageState extends State<MainPage> {
     SharedPreferences.getInstance().then((prefs) {
       setState(() => sharedPrefs = prefs);
       isFired = false;
+      _getLocations = getLocation();
       _getLocalStations = getLocalStations();
       _getMainCards = getMainCards();
-      stations = [];
-      newStations = [];
-      mainCardStations = [];
     });
   }
 
@@ -240,6 +239,14 @@ class MainPageState extends State<MainPage> {
   StreamSubscription<Position> _positionStreamSubscription;
   Position _position;
   var firstStationName = '';
+
+  double getDistanceNum(double lat1, double lon1, double lat2, double lon2) {
+    const p = 0.017453292519943295;
+    var a = 0.5 -
+        cos((lat2 - lat1) * p) / 2 +
+        cos(lat1 * p) * cos(lat2 * p) * (1 - cos((lon2 - lon1) * p)) / 2;
+    return 12742 * asin(sqrt(a));
+  }
 
   Future<List<Station>> getMainCards() async {
     if (_position != null && newStations[0] != null) {
@@ -249,13 +256,15 @@ class MainPageState extends State<MainPage> {
         for (var station in stations) {
           if (station.name == firstStationName) {
             mainCardStations.add(station);
-            mainCardStations.last.dist = newStations[0].dist;
+            mainCardStations.last.dist = getDistanceNum(_position.latitude, _position.longitude, newStations[0].lat, newStations[0].lng);
           }
         }
+        print('##########################maincardsTations are ${mainCardStations.length}');
         return mainCardStations;
       }
     }
-    return null;
+    print('##########################maincardsTations are ${mainCardStations.length}');
+    return mainCardStations;
   }
 
   Future<void> getLocation() async {
@@ -278,7 +287,6 @@ class MainPageState extends State<MainPage> {
       });
     }
     setState(() {
-      // newStations.sort();
     });
   }
 
@@ -431,26 +439,28 @@ class MainPageState extends State<MainPage> {
                   }),
             ],
           ),
-          body: ListView(children: [
-            Container(
+          body: Column(
+              children: [
+            Expanded(
+
                 child: FutureBuilder(
-                    future: _getMainCards,
-                    builder: (BuildContext context, AsyncSnapshot snapshot) {
+                    future: getMainCards(),
+                    builder: (BuildContext mainCardContext, AsyncSnapshot snapshot) {
                       if (snapshot.data == null) {
-                        return Column();
+                        return Text('not loaded');
                       } else {
                         return ListView.builder(
                             itemCount: snapshot.data.length,
                             itemBuilder:
-                                (BuildContext buildContext, int index) {
-                              return Card(
-                                  child: Text(snapshot.data[index].dist));
+                                (BuildContext mainCardBuildContext, int mainIndex) {
+                              return ListTile(
+                                  title: Text(snapshot.data[mainIndex].dist.toString()));
                             });
                       }
                     })),
-            Container(
+            Expanded(
                 child: FutureBuilder(
-                    future: _getLocalStations.whenComplete(() => getLocation()),
+                    future: _getLocalStations,
                     builder: (BuildContext context, AsyncSnapshot snapshot) {
                       if (snapshot.data == null) {
                         return Container(
@@ -482,6 +492,7 @@ class MainPageState extends State<MainPage> {
                                                 _position.longitude,
                                                 snapshot.data[index].lat,
                                                 snapshot.data[index].lng)
+                                        //toDO redo font size adjusting and locations switch
                                             .obs(),
                                       )));
                             });
