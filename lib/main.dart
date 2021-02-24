@@ -256,14 +256,13 @@ class MainPageState extends State<MainPage> {
         for (var station in stations) {
           if (station.name == firstStationName) {
             mainCardStations.add(station);
-            mainCardStations.last.dist = getDistanceNum(_position.latitude, _position.longitude, newStations[0].lat, newStations[0].lng);
+            mainCardStations.last.dist = getDistanceNum(_position.latitude,
+                _position.longitude, newStations[0].lat, newStations[0].lng);
           }
         }
-        print('##########################maincardsTations are ${mainCardStations.length}');
         return mainCardStations;
       }
     }
-    print('##########################maincardsTations are ${mainCardStations.length}');
     return mainCardStations;
   }
 
@@ -286,8 +285,7 @@ class MainPageState extends State<MainPage> {
         });
       });
     }
-    setState(() {
-    });
+    setState(() {});
   }
 
   void locationFailedDialog() async {
@@ -439,22 +437,47 @@ class MainPageState extends State<MainPage> {
                   }),
             ],
           ),
-          body: Column(
-              children: [
+          body: Column(children: [
             Expanded(
-
                 child: FutureBuilder(
                     future: getMainCards(),
-                    builder: (BuildContext mainCardContext, AsyncSnapshot snapshot) {
+                    builder:
+                        (BuildContext mainCardContext, AsyncSnapshot snapshot) {
                       if (snapshot.data == null) {
                         return Text('not loaded');
                       } else {
                         return ListView.builder(
                             itemCount: snapshot.data.length,
                             itemBuilder:
-                                (BuildContext mainCardBuildContext, int mainIndex) {
-                              return ListTile(
-                                  title: Text(snapshot.data[mainIndex].dist.toString()));
+                                (BuildContext mainCardBuildContext, int index) {
+                              return Card(
+                                  child: Container(
+                                      child: Column(
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                          snapshot.data[index].name +
+                                              '    ' +
+                                              snapshot.data[index].line,
+                                          style: TextStyle(fontSize: 16)),
+                                      Spacer(),
+                                      if (snapshot.data[index] ==
+                                          snapshot.data[0])
+                                        Card(
+                                            //this will only add distances in the first maincard section.
+                                            child: Text(
+                                                getDistance(
+                                                    _position.latitude,
+                                                    _position.longitude,
+                                                    snapshot.data[index].lat,
+                                                    snapshot.data[index].lng),
+                                                style: TextStyle(fontSize: 16)))
+                                    ],
+                                  ),
+                                ],
+                              )));
                             });
                       }
                     })),
@@ -484,16 +507,17 @@ class MainPageState extends State<MainPage> {
                                   },
                                   background: Container(color: Colors.red),
                                   child: ListTile(
-                                      title: Text(snapshot.data[index].name),
-                                      trailing: Text(snapshot.data[index].line),
-                                      subtitle: Text(
+                                      title: Text(snapshot.data[index].name,
+                                          style: TextStyle(fontSize: 16)),
+                                      subtitle: Text(snapshot.data[index].line,
+                                          style: TextStyle(fontSize: 16)),
+                                      trailing: Text(
                                         getDistance(
-                                                _position.latitude,
-                                                _position.longitude,
-                                                snapshot.data[index].lat,
-                                                snapshot.data[index].lng)
-                                        //toDO redo font size adjusting and locations switch
-                                            .obs(),
+                                            _position.latitude,
+                                            _position.longitude,
+                                            snapshot.data[index].lat,
+                                            snapshot.data[index].lng),
+                                        style: TextStyle(fontSize: 16),
                                       )));
                             });
                       }
