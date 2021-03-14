@@ -230,6 +230,7 @@ class MainPageState extends State<MainPage> {
       setState(() => sharedPrefs = prefs);
       isFired = false;
       _getLocations = getLocation();
+      //TODO: iOS Doesn't load newstations and display them, needs debug.
       _getLocalStations = getLocalStations();
       _getMainCards = getMainCards();
     });
