@@ -1,7 +1,3 @@
-# fast_subway
+## Fast Subway Android App
 
-Fast Subway Android App
-
-## 앱 설명
-
-위도와 경도, 호선, 역이름 등이 포함된 json파일을 파싱하여 로드하고, 사용자가 지정한 역이 있으면 서울 열린데이터광장 실시간 지하철 도착정보 api 데이터를 읽어와 보여주고, 남은 거리를 표시해주는 앱입니다.
+- work in progress
