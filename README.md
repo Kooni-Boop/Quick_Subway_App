@@ -1,3 +1,3 @@
-## Fast Subway Android App
+## QuickSubway - Flutter
 
-## ``Work in Progress``
+## ``WORK IN PROGRESS``
